@@ -12,7 +12,7 @@ Installation
 
 just run
 
-```
+```sh
 make
 ```
 
@@ -35,7 +35,7 @@ After an interpreter is initialized you can start parsing code.
 
 To parse code you use
 
-```
+```c
 ulver_form *ulver_parse(ulver_env *env, char *source, uint64_t source_len);
 ```
 
