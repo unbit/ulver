@@ -36,6 +36,8 @@ to access the REPL interface:
 2
 ```
 
+(the GNU readline library is used, so you have history and advanced terminal operations)
+
 Instead, if you pass a filename to the ulver command it will parse it
 
 ```sh
@@ -87,4 +89,10 @@ int main() {
 }
 ```
 
+you can build it with (supposing you are still in the ulver source directory):
 
+```sh
+gcc -I. -o example example.c libulver.a
+```
+
+Running ```./example``` will print "17 "
