@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <ctype.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -135,3 +137,5 @@ ulver_form *ulver_parse(ulver_env *, char *, size_t);
 
 int ulver_utils_is_a_number(char *, uint64_t);
 int ulver_utils_is_a_float(char *, uint64_t);
+
+void ulver_init(ulver_env *);

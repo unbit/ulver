@@ -29,7 +29,7 @@ ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
 		if (uo->type == ULVER_NUM) {
 			n += uo->n;
 		}
-		else if (uo->type = ULVER_FLOAT) {
+		else if (uo->type == ULVER_FLOAT) {
 			is_float = 1;
 			d += uo->d;
 		}
