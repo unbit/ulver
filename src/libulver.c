@@ -401,7 +401,8 @@ ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	ulver_form *t_func = uf;
 	if (!t_func) return env->nil;
 	ulver_object *u_func = ulver_object_from_symbol(env, t_func);
-	if (!u_func) return NULL;
+	if (!u_func) return ulver_error_form(env, uf, "function not found");
+	if (u_func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
 
 	env->caller = u_func;
 	

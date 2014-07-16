@@ -1,4 +1,6 @@
 #include <ulver.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 void cleanup() {
 	printf("\n");
@@ -15,24 +17,23 @@ int main(int argc, char **argv) {
 		//
 		char buf[8192];
 		for(;;) {
-			printf("> ");
-        		if (fgets(buf, 8192, stdin)) {
-                		size_t len = strlen(buf);
-                		if (buf[len-1] == '\n') len--;
-				ulver_form *uf = ulver_parse(&env, buf, len);		
-				if (!uf) {
-					printf("unable to parse expression\n");
-					continue;
-				}
-				ulver_object *ret = ulver_fun_print(&env, uf);
-                		if (ret == NULL) {
-                        		if (env.error) {
-                                		printf("\n*** ERROR: %.*s ***\n", env.error_len, env.error);
-                        		}
-                		}
-				else {
-					printf("\n");
-				}
+			char *line = readline("> ");
+			if (!line) continue;
+			add_history(line);
+                	size_t len = strlen(line);
+			ulver_form *uf = ulver_parse(&env, line, len);		
+			if (!uf) {
+				printf("unable to parse expression\n");
+				continue;
+			}
+			ulver_object *ret = ulver_fun_print(&env, uf);
+                	if (ret == NULL) {
+                        	if (env.error) {
+                               		printf("\n*** ERROR: %.*s ***\n", env.error_len, env.error);
+                        	}
+                	}
+			else {
+				printf("\n");
 			}
         	}
 		exit(0);
