@@ -9,8 +9,7 @@ void cleanup() {
 int main(int argc, char **argv) {
 	atexit(cleanup);
 
-	ulver_env env;
-        ulver_init(&env);
+        ulver_env *env = ulver_init();
 
 	// REPL ?
 	if (argc < 2) {
@@ -21,15 +20,15 @@ int main(int argc, char **argv) {
 			if (!line) continue;
 			add_history(line);
                 	size_t len = strlen(line);
-			ulver_form *uf = ulver_parse(&env, line, len);		
+			ulver_form *uf = ulver_parse(env, line, len);		
 			if (!uf) {
 				printf("unable to parse expression\n");
 				continue;
 			}
-			ulver_object *ret = ulver_fun_print(&env, uf);
+			ulver_object *ret = ulver_fun_print(env, uf);
                 	if (ret == NULL) {
-                        	if (env.error) {
-                               		printf("\n*** ERROR: %.*s ***\n", env.error_len, env.error);
+                        	if (env->error) {
+                               		printf("\n*** ERROR: %.*s ***\n", env->error_len, env->error);
                         	}
                 	}
 			else {
@@ -62,12 +61,12 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	ulver_form *uf = ulver_parse(&env, buf, rlen);
+	ulver_form *uf = ulver_parse(env, buf, rlen);
 	while(uf) {
-		ulver_object *ret = ulver_eval(&env, uf);
+		ulver_object *ret = ulver_eval(env, uf);
 		if (ret == NULL) {
-			if (env.error) {
-				printf("\n*** ERROR: %.*s ***\n", env.error_len, env.error);
+			if (env->error) {
+				printf("\n*** ERROR: %.*s ***\n", env->error_len, env->error);
 			}
 			exit(1);
 		}

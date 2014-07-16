@@ -500,10 +500,9 @@ ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_o
 	return ulver_symbolmap_set(env, env->stack->locals, name, len, uo);
 }
 
-void ulver_init(ulver_env *env) {
+ulver_env *ulver_init() {
 
-	// set it to NULL to set ->prev to the right value
-	env->stack = NULL;
+	ulver_env *env = calloc(1, sizeof(ulver_env));
 
 	env->alloc = ulver_alloc;
 	env->free = ulver_free;
@@ -541,4 +540,6 @@ void ulver_init(ulver_env *env) {
 	ulver_register_fun(env, "gc", ulver_fun_gc);
 	ulver_register_fun(env, "unintern", ulver_fun_unintern);
 	ulver_register_fun(env, "error", ulver_fun_error);
+
+	return env;
 }

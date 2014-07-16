@@ -138,4 +138,4 @@ ulver_form *ulver_parse(ulver_env *, char *, size_t);
 int ulver_utils_is_a_number(char *, uint64_t);
 int ulver_utils_is_a_float(char *, uint64_t);
 
-void ulver_init(ulver_env *);
+ulver_env *ulver_init();
