@@ -6,6 +6,9 @@ ulver_form *ulver_form_new(ulver_env *env, uint8_t type) {
         uf->parent = env->form_list_current;
 	uf->line = env->lines;
 	uf->line_pos = env->line_pos;
+	if (!env->form_new) {
+		env->form_new = uf;
+	}
 	return uf; 
 }
 
@@ -29,6 +32,15 @@ ulver_form *ulver_form_push(ulver_env *env, uint8_t type) {
 	return NULL;
 }
 
+void ulver_form_destroy(ulver_env *env, ulver_form *uf) {
+	ulver_form *list = uf->list;
+	while(list) {
+		ulver_form *next = list->next;
+		ulver_form_destroy(env, list);
+		list = next;
+	}
+	env->free(env, uf, sizeof(ulver_form));
+}
 
 ulver_form *ulver_form_commit(ulver_env *env) {
 	ulver_form *uf = NULL;
@@ -60,9 +72,12 @@ ulver_form *ulver_form_commit(ulver_env *env) {
 
 ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
-	// create the root form
-	env->form_list_current = NULL;
-	env->form_root = ulver_form_new(env, ULVER_LIST);
+	env->form_new = NULL;
+
+	// create the root form (if needed)
+	if (!env->form_root) {
+		env->form_root = ulver_form_new(env, ULVER_LIST);
+	}
 	env->form_list_current = env->form_root;
 
 	int is_escaped = 0;
@@ -72,7 +87,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	env->is_quoted = 0;
 	env->token = NULL;
 	env->token_len = 0;
-	env->lines = 1;
+	env->lines++;
 	env->line_pos = 0;
 
 	for(env->pos=0;env->pos<len;env->pos++) {
@@ -110,7 +125,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 
 			if (c == '"') {
-				ulver_form_commit(env);
+				ulver_form *uf = ulver_form_commit(env);
 				env->is_quoted = 0;
 				is_escaped = 0;
 				continue;
@@ -155,5 +170,5 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 	ulver_form_commit(env);
 
-	return env->form_root->list;
+	return env->form_new;
 }

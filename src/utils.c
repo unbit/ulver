@@ -95,3 +95,13 @@ check:
 
         return 1;
 }
+
+char *ulver_utils_strndup(ulver_env *env, char *str, uint64_t len) {
+	char *ptr = env->alloc(env, len+1);
+	memcpy(ptr, str, len);
+	return ptr;
+}
+
+char *ulver_utils_strdup(ulver_env *env, char *str) {
+	return ulver_utils_strndup(env, str, strlen(str));
+}

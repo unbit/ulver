@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
 			}
 			free(line);
         	}
+		ulver_destroy(env);
 		exit(0);
 	}
 
@@ -73,4 +74,5 @@ int main(int argc, char **argv) {
 		}
 		uf = uf->next;
 	}
+	ulver_destroy(env);
 }

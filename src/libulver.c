@@ -1,5 +1,10 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_exit(ulver_env *env, ulver_form *argv) {
+	ulver_destroy(env);
+	exit(0);
+}
+
 ulver_object *ulver_fun_error(ulver_env *env, ulver_form *argv) {
 	if (argv->type != ULVER_STRING) {
 		return ulver_error_form(env, argv, "must be a string"); 
@@ -306,12 +311,12 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 	}
 
 	if (uo->str) {
-		free(uo->str);
+		// strings memory area is zero-suffixed
+		env->free(env, uo->str, (uo->len + 1));
+		uo->size -= (uo->len + 1);
 	}
 
-	env->mem -= uo->size;
-
-	free(uo);
+	env->free(env, uo, uo->size);
 }
 
 ulver_object *ulver_object_from_num(ulver_env *env, int64_t n) {
@@ -328,17 +333,17 @@ ulver_object *ulver_object_from_float(ulver_env *env, double n) {
 
 ulver_object *ulver_object_from_string(ulver_env *env, char *value, uint64_t len) {
         ulver_object *uo = ulver_object_new(env, ULVER_STRING);
-        uo->str = strndup(value, len);
+        uo->str = ulver_utils_strndup(env, value, len);
 	uo->len = len;
-	uo->size += len;
+	uo->size += (len + 1);
         return uo;
 }
 
 ulver_object *ulver_object_from_keyword(ulver_env *env, char *value, uint64_t len) {
         ulver_object *uo = ulver_object_new(env, ULVER_KEYWORD);
-        uo->str = strndup(value, len);
+        uo->str = ulver_utils_strndup(env, value, len);
 	uo->len = len;
-	uo->size += len;
+	uo->size += (len + 1);
 	ulver_utils_toupper(uo->str, uo->len);
         return uo;
 }
@@ -420,30 +425,35 @@ ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
 }
 
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
-	char *buf = env->alloc(env, 1024);
+	uint64_t buf_size = 1024;
+	char *buf = env->alloc(env, buf_size);
 	va_list varg;
 	va_start(varg, fmt);
-	int ret = vsnprintf(buf, 1024, fmt, varg);	
+	int ret = vsnprintf(buf, buf_size, fmt, varg);	
 	va_end(varg);
 	if (ret <= 0) goto fatal;
-	if (ret+1 > 1024) {
-		uint64_t new_size = ret;
-		free(buf);
-		buf = env->alloc(env, new_size);
+	if (ret+1 > buf_size) {
+		int64_t new_size = ret;
+		env->free(env, buf, buf_size);
+		buf_size = new_size + 1;
+		buf = env->alloc(env, buf_size);
 		va_start(varg, fmt);
-        	ret = vsnprintf(buf, new_size, fmt, varg);
+        	ret = vsnprintf(buf, buf_size, fmt, varg);
         	va_end(varg);
-        	if (ret <= 0 || ret + 1 > new_size) {
+        	if (ret <= 0 || ret + 1 > buf_size) {
 			goto fatal;
         	}
 	} 
 	env->error = buf;
 	env->error_len = ret;
+	env->error_buf_len = buf_size;
 	return NULL;
 
 fatal:
-	env->error = strdup("FATAL ERROR");
+	env->free(env, buf, buf_size);
+	env->error = ulver_utils_strdup(env, "FATAL ERROR");
         env->error_len = strlen(env->error);
+	env->error_buf_len = env->error_len + 1;
         return NULL;
 }
 
@@ -539,6 +549,42 @@ ulver_env *ulver_init() {
 	ulver_register_fun(env, "gc", ulver_fun_gc);
 	ulver_register_fun(env, "unintern", ulver_fun_unintern);
 	ulver_register_fun(env, "error", ulver_fun_error);
+	ulver_register_fun(env, "exit", ulver_fun_exit);
 
 	return env;
+}
+
+void ulver_destroy(ulver_env *env) {
+	// unprotect objects
+	ulver_object *uo = env->gc_root;
+	while(uo) {
+		uo->gc_protected = 0;
+		uo = uo->gc_next;
+	}
+	// consume the whole stack
+	while(env->stack) {
+		ulver_stack_pop(env);	
+	}
+	ulver_gc(env);
+	printf("mem = %lld\n", env->mem);
+	uo = env->gc_root;
+	while(uo) {
+		printf("uo = %p %d\n", uo, uo->type);
+		uo = uo->gc_next;
+	}
+
+	printf("%p\n", env->stack);
+
+	// now destroy the form three
+	ulver_form *root = env->form_root;
+	printf("root = %p\n", root);
+	while(root) {
+		ulver_form *next = root->next;
+		ulver_form_destroy(env, root);
+		root = next;
+	}	
+
+	printf("mem = %lld\n", env->mem);
+
+	free(env);
 }

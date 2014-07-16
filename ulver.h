@@ -37,7 +37,7 @@ struct ulver_env {
 	struct ulver_stackframe *stack;
 	struct ulver_stackframe *global_stack;
 	void *(*alloc)(ulver_env *, uint64_t);
-	void (*free)(ulver_env *, void *);
+	void (*free)(ulver_env *, void *, uint64_t);
 	ulver_object *t;
 	ulver_object *nil;
         uint64_t mem;
@@ -45,6 +45,7 @@ struct ulver_env {
 	ulver_object *gc_root;
 	char *error;
 	uint64_t error_len;
+	uint64_t error_buf_len;
 	uint64_t lines;
 	uint64_t pos;
 	uint64_t line_pos;
@@ -52,6 +53,7 @@ struct ulver_env {
 	uint64_t token_len;
 	ulver_form *form_root;
 	ulver_form *form_list_current;
+	ulver_form *form_new;
 	uint8_t is_quoted;
 };
 
@@ -123,7 +125,7 @@ ulver_object *ulver_fun_print(ulver_env *, ulver_form *);
 ulver_symbol *ulver_register_fun2(ulver_env *, char *, uint64_t, ulver_object *(*)(ulver_env *, ulver_form *), ulver_form *, ulver_form *);
 
 void *ulver_alloc(ulver_env *, uint64_t);
-void ulver_free(ulver_env *, void *);
+void ulver_free(ulver_env *, void *, uint64_t);
 void ulver_gc(ulver_env *);
 void ulver_object_destroy(ulver_env *, ulver_object *);
 
@@ -139,3 +141,9 @@ int ulver_utils_is_a_number(char *, uint64_t);
 int ulver_utils_is_a_float(char *, uint64_t);
 
 ulver_env *ulver_init();
+void ulver_destroy(ulver_env *);
+
+void ulver_form_destroy(ulver_env *, ulver_form *);
+
+char *ulver_utils_strndup(ulver_env *, char *, uint64_t);
+char *ulver_utils_strdup(ulver_env *, char *);

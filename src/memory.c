@@ -10,8 +10,9 @@ void *ulver_alloc(ulver_env *env, uint64_t len) {
 	return ptr;
 }
 
-void ulver_free(ulver_env *env, void *ptr) {
+void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 	free(ptr);
+	env->mem -= amount;
 }
 
 static void object_mark(ulver_env *env, ulver_object *uo) {

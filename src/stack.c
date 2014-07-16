@@ -57,8 +57,7 @@ static void symbolmap_resize(ulver_env *env, ulver_symbolmap *smap) {
 		}
 	}
 
-	env->mem -= sizeof(ulver_symbol *) * old_hashtable_size;
-	env->free(env, old_hashtable);
+	env->free(env, old_hashtable, sizeof(ulver_symbol *) * old_hashtable_size);
 }
 
 ulver_symbol *ulver_symbolmap_set(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len, ulver_object *uo) {
@@ -129,8 +128,7 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 				if (us == smap->hashtable[hash]) {
 					smap->hashtable[hash] = next;
 				}
-				free(us);
-				env->mem -= sizeof(ulver_symbol);
+				env->free(env, us, sizeof(ulver_symbol));
 				smap->items--;
 				return 0;
                         }
@@ -162,19 +160,15 @@ void ulver_stack_pop(ulver_env *env) {
                 while(us) {
                         // get the "next" symbol, before moving the current one
                         ulver_symbol *next = us->next;
-			env->mem -= sizeof(ulver_symbol);
-			free(us);
+			env->free(env, us, sizeof(ulver_symbol));
                         us = next;
                 }
         }
 
-	free(ustack->locals->hashtable);	
-	env->mem -= sizeof(ulver_symbol *) * ustack->locals->hashtable_size;
+	env->free(env, ustack->locals->hashtable, sizeof(ulver_symbol *) * ustack->locals->hashtable_size);	
 
-	free(ustack->locals);
-	env->mem -= sizeof(ulver_symbolmap);
+	env->free(env, ustack->locals, sizeof(ulver_symbolmap));
 
-	env->mem -= sizeof(ulver_stackframe);
-	env->free(env, ustack);
+	env->free(env, ustack, sizeof(ulver_stackframe));
 }
 
