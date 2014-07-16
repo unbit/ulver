@@ -77,7 +77,7 @@ Example:
 #include <ulver.h>
 
 int main() {
-        ulver_env *env = ulver_init()
+        ulver_env *env = ulver_init();
         ulver_form *root_form = ulver_parse(env, "(print 17)", 11);
         if (!root_form) {
                 printf("unable to parse your lisp code !!!\n");
