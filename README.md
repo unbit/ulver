@@ -95,4 +95,12 @@ you can build it with (supposing you are still in the ulver source directory):
 gcc -I. -o example example.c libulver.a
 ```
 
-Running ```./example``` will print "17 "
+running ```./example``` will print "17 "
+
+If you prefer to use the dynamic library (and you have copied it in a library directory)
+
+```sh
+gcc -I. -o example example.c -lulver
+```
+
+(oviously you can copy ulver.h to an include directory and avoid the -I. flag)
