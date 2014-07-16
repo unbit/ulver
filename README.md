@@ -5,7 +5,7 @@ Unbit Lisp Version
 
 This is an almost didactical ANSI C implementation of a Common LISP interpreter.
 
-It is built for being easily embeddable in C/C++ applications
+It is built for being easily extendable and for being embedded in C/C++ applications
 
 Installation
 ============
@@ -21,6 +21,26 @@ you will end with
 * libulver.so (a shared library you can use to embed the ulver engine in your apps)
 * libulver.a (static version of libulver.so)
 * ulver (readline based executable implementing REPL and file runner)
+
+Now run
+
+```sh
+./ulver
+```
+
+to access the REPL interface:
+
+```lisp
+> (+ 1 1)
+
+2
+```
+
+Instead, if you pass a filename to the ulver command it will parse it
+
+```sh
+./ulver myscript.lisp
+```
 
 Embedding
 =========
