@@ -104,3 +104,31 @@ gcc -I. -o example example.c -lulver
 ```
 
 (oviously you can copy ulver.h to an include directory and avoid the -I. flag)
+
+Status
+======
+
+The project is in alpha stage (it is still mainly a proof of concept), the following functions are implemented:
+
+* +
+* -
+* *
+* >
+* =
+* print
+* parse-integer
+* setq
+* progn
+* read-line
+* if
+* cond
+* defun
+* list
+* cons
+* car
+* cdr
+* atom
+* let
+* gc
+* unintern
+* error
