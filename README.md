@@ -5,7 +5,7 @@ Unbit Lisp Version
 
 This is an almost didactical ANSI C implementation of a Common LISP interpreter.
 
-It is built for being easily extendable and for being embedded in C/C++ applications
+It is built to be easily extended and for being embedded in C/C++ applications
 
 Installation
 ============
