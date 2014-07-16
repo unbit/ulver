@@ -21,7 +21,6 @@ int main(int argc, char **argv) {
 			add_history(line);
                 	size_t len = strlen(line);
 			ulver_form *uf = ulver_parse(env, line, len);		
-			free(line);
 			if (!uf) {
 				printf("unable to parse expression\n");
 				continue;
@@ -35,6 +34,7 @@ int main(int argc, char **argv) {
 			else {
 				printf("\n");
 			}
+			free(line);
         	}
 		exit(0);
 	}
