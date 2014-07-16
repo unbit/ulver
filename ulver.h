@@ -122,7 +122,7 @@ ulver_object *ulver_fun_print(ulver_env *, ulver_form *);
 
 ulver_symbol *ulver_register_fun2(ulver_env *, char *, uint64_t, ulver_object *(*)(ulver_env *, ulver_form *), ulver_form *, ulver_form *);
 
-void *ulver_malloc(ulver_env *, uint64_t);
+void *ulver_alloc(ulver_env *, uint64_t);
 void ulver_free(ulver_env *, void *);
 void ulver_gc(ulver_env *);
 void ulver_object_destroy(ulver_env *, ulver_object *);

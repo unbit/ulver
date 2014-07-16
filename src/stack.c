@@ -102,7 +102,6 @@ ulver_symbol *ulver_symbolmap_get(ulver_env *env, ulver_symbolmap *smap, char *n
 		}
 		us = us->next;
 	}
-
 	return NULL;
 }
 

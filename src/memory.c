@@ -1,6 +1,6 @@
 #include <ulver.h>
 
-void *ulver_malloc(ulver_env *env, uint64_t len) {
+void *ulver_alloc(ulver_env *env, uint64_t len) {
 	void *ptr = calloc(1, len);
 	if (!ptr) {
 		perror("calloc()");

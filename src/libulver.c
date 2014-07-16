@@ -501,7 +501,10 @@ ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_o
 
 void ulver_init(ulver_env *env) {
 
-	env->alloc = ulver_malloc;
+	// set it to NULL to set ->prev to the right value
+	env->stack = NULL;
+
+	env->alloc = ulver_alloc;
 	env->free = ulver_free;
 
 	env->global_stack = ulver_stack_push(env);
