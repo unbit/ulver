@@ -6,8 +6,8 @@ uint64_t tests_failed = 0;
 
 void tests();
 
-void test_num(char *s, uint64_t n) {
-	printf("- running test_num for \"%s\", expect %lld\n", s, n);
+void test_float(char *s, double d) {
+	printf("- running test_num for \"%s\", expect %f\n", s, d);
 	ulver_object *ret = ulver_run(env, s);
 	if (!ret) {
 		ulver_report_error(env);
@@ -15,19 +15,43 @@ void test_num(char *s, uint64_t n) {
 		return;
 	}
 
-	if (ret->type != ULVER_NUM) {
-		printf("[FAILED] test for %s: object is not a number\n", s);
+	if (ret->type != ULVER_FLOAT) {
+		printf("[FAILED] test for %s: object is not a float\n", s);
 		tests_failed++;
                 return;
 	}
 
-	if (ret->n != n) {
-		printf("[FAILED] test for %s: %lld is not %lld\n", s, ret->n, n);
+	if (ret->d != d) {
+		printf("[FAILED] test for %s: %f is not %f\n", s, ret->d, d);
                 tests_failed++;
                 return;
 	}
 
 	tests_successfull++;
+}
+
+void test_num(char *s, int64_t n) {
+        printf("- running test_num for \"%s\", expect %lld\n", s, n);
+        ulver_object *ret = ulver_run(env, s);
+        if (!ret) {
+                ulver_report_error(env);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->type != ULVER_NUM) {
+                printf("[FAILED] test for %s: object is not a number\n", s);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->n != n) {
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, ret->n, n);
+                tests_failed++;
+                return;
+        }
+
+        tests_successfull++;
 }
 
 void test_true(char *s) {
@@ -73,6 +97,11 @@ void tests() {
 	test_num("(- 1)", -1);
 	test_num("(- 1 3)", -2);
 	test_num("(- 1 -2)", 3);
+
+	test_float("(+ 1.0 2)", 3.0);
+	test_float("(- 1 0.1)", 0.9);
+	test_float("(* 1.0 2 3)", 6.0);
+	test_float("(* 2.0)", 2.0);
 
 	test_true("(eq 1 1)");
 	test_true("(eq (+ 1 2) 3)");

@@ -190,11 +190,27 @@ ulver_object *ulver_fun_sub(ulver_env *env, ulver_form *argv) {
 
 
 ulver_object *ulver_fun_mul(ulver_env *env, ulver_form *argv) {
-        int64_t n = 1;
-	while(argv) {
+	int64_t n = 1;
+        double d = 1.0;
+        uint8_t is_float = 0;
+        while(argv) {
                 ulver_object *uo = ulver_eval(env, argv);
-                n *= uo->n;
+                if (!uo) return NULL;
+                if (uo->type == ULVER_NUM) {
+                        n *= uo->n;
+                }
+                else if (uo->type == ULVER_FLOAT) {
+                        is_float = 1;
+                        d *= uo->d;
+                }
+                else {
+                        return ulver_error_form(env, argv, "argument is not a number or a float");
+                }
                 argv = argv->next;
+        }
+
+        if (is_float) {
+                return ulver_object_from_float(env, d*n);
         }
         return ulver_object_from_num(env, n);
 }
