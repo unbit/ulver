@@ -17,6 +17,7 @@
 #define ULVER_FLOAT 4
 #define ULVER_FUNC 5
 #define ULVER_KEYWORD 6
+#define ULVER_PACKAGE 7
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -64,6 +65,9 @@ struct ulver_env {
 	ulver_form *form_new;
 	uint8_t is_quoted;
 	ulver_source *sources;
+	ulver_symbolmap *packages;
+	ulver_object *current_package;
+	ulver_object *cl_user;
 };
 
 struct ulver_object {
@@ -82,6 +86,7 @@ struct ulver_object {
 	ulver_object *gc_next;
 	uint8_t gc_mark;
 	uint8_t gc_protected;
+	ulver_symbolmap *map;
 };
 
 struct ulver_form {
@@ -114,8 +119,8 @@ void ulver_utils_tolower(char *, uint64_t);
 void ulver_utils_toupper(char *, uint64_t);
 int ulver_utils_memicmp(char *, char *, uint64_t);
 
-ulver_symbol *ulver_symbolmap_get(ulver_env *, ulver_symbolmap *, char *, uint64_t);
-ulver_symbol *ulver_symbolmap_set(ulver_env *, ulver_symbolmap *, char *, uint64_t, ulver_object *);
+ulver_symbol *ulver_symbolmap_get(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
+ulver_symbol *ulver_symbolmap_set(ulver_env *, ulver_symbolmap *, char *, uint64_t, ulver_object *, uint8_t);
 
 ulver_stackframe *ulver_stack_push(ulver_env *);
 void ulver_stack_pop(ulver_env *);
@@ -127,7 +132,10 @@ ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);
+ulver_object *ulver_eval_list(ulver_env *, ulver_form *);
 ulver_object *ulver_object_copy(ulver_env *, ulver_object *);
+
+void ulver_symbolmap_destroy(ulver_env *, ulver_symbolmap *);
 
 ulver_object *ulver_fun_print(ulver_env *, ulver_form *);
 
@@ -138,7 +146,7 @@ void ulver_free(ulver_env *, void *, uint64_t);
 void ulver_gc(ulver_env *);
 void ulver_object_destroy(ulver_env *, ulver_object *);
 
-int ulver_symbolmap_delete(ulver_env *, ulver_symbolmap *, char *, uint64_t);
+int ulver_symbolmap_delete(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 int ulver_symbol_delete(ulver_env *, char *, uint64_t);
 
 ulver_object *ulver_error(ulver_env *, char *, ...);
@@ -159,3 +167,7 @@ char *ulver_utils_strdup(ulver_env *, char *);
 
 ulver_object *ulver_load(ulver_env *, char *);
 void ulver_report_error(ulver_env *);
+
+ulver_symbolmap *ulver_symbolmap_new(ulver_env *);
+
+ulver_object *ulver_package(ulver_env *, char *, uint64_t);

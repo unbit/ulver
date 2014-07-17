@@ -1,5 +1,73 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "in-package requires an argument");
+	ulver_object *package_name = ulver_eval(env, argv);
+        if (!package_name || (package_name->type != ULVER_STRING && package_name->type != ULVER_KEYWORD))
+                return ulver_error(env, "package name must be a string or a keyword");
+
+	// if we use a keyword, remove the colon
+        char *name = package_name->str;
+        uint64_t len = package_name->len;
+        if (package_name->type == ULVER_KEYWORD) {
+                name++; len--;
+        }
+
+	ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, len, 1);
+	if (!package) {
+		return ulver_error(env, "unable to find package %.*s", len, name);
+	}
+	env->current_package = package->value;
+	ulver_symbol_set(env, "*package*", 9, env->current_package);
+	return package->value;
+}
+
+ulver_object *ulver_fun_defpackage(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "defpackage requires an argument");
+
+	ulver_object *package_name = ulver_eval(env, argv);
+	if (!package_name || (package_name->type != ULVER_STRING && package_name->type != ULVER_KEYWORD))
+		return ulver_error(env, "package name must be a string or a keyword");
+
+	// if we use a keyword, remove the colon
+	char *name = package_name->str;
+	uint64_t len = package_name->len;
+	if (package_name->type == ULVER_KEYWORD) {
+		name++; len--;
+	}
+	// create the new package
+	ulver_object *package = ulver_package(env, name, len);
+
+	// now start scanning args
+	ulver_form *arg = argv->next;
+	while(arg) {
+		// only lists are meaningful
+		if (arg->type != ULVER_LIST) goto next;
+		ulver_object *uo = ulver_eval_list(env, arg);
+		if (!uo) return NULL;
+		// has it a key ?
+		if (uo->list && uo->list->type == ULVER_KEYWORD) {
+			// :export ?
+			if (uo->list->len == 7 && !ulver_utils_memicmp(uo->list->str, ":export", 7)) {
+				// now start scanning for keywords and add them
+				// to the package map
+				ulver_object *exported = uo->list->next;
+				while(exported) {
+					if (exported->type == ULVER_KEYWORD) {
+						// this cannot fail
+						ulver_symbolmap_set(env, package->map, exported->str+1, exported->len-1, env->nil, 1);
+					}
+					exported = exported->next;
+				}
+			}
+		}
+next:
+		arg = arg->next;
+	}
+
+	return package;
+}
+
 ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "load requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
@@ -210,7 +278,8 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	ulver_object *uo = ulver_eval(env, argv->next);
-	ulver_symbol *us = ulver_symbolmap_set(env, env->global_stack->locals, argv->value, argv->len, uo);
+	ulver_symbol *us = ulver_symbolmap_set(env, env->global_stack->locals, argv->value, argv->len, uo, 0);
+	if (!us) return NULL;
 	return uo;
 }
 
@@ -245,7 +314,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_STRING) {
 		printf("\n\"%.*s\" ", (int) uo->len, uo->str);
 	}
-	else if (uo->type == ULVER_KEYWORD) {
+	else if (uo->type == ULVER_KEYWORD || uo->type == ULVER_FUNC) {
 		printf("\n%.*s ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_NUM) {
@@ -253,6 +322,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	}
 	else if (uo->type == ULVER_FLOAT) {
 		printf("\n%f ", uo->d);
+	}
+	else if (uo->type == ULVER_PACKAGE) {
+		printf("\n#<PACKAGE %.*s> ", uo->len, uo->str);
 	}
 	else {
 		printf("\n?%.*s? ", (int) uo->len, uo->str);
@@ -327,6 +399,10 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 		uo->size -= (uo->len + 1);
 	}
 
+	if (uo->map) {
+		ulver_symbolmap_destroy(env, uo->map);
+	}
+
 	env->free(env, uo, uo->size);
 }
 
@@ -359,15 +435,30 @@ ulver_object *ulver_object_from_keyword(ulver_env *env, char *value, uint64_t le
         return uo;
 }
 
+ulver_object *ulver_package(ulver_env *env, char *value, uint64_t len) {
+	ulver_object *uo = ulver_object_new(env, ULVER_PACKAGE);
+        uo->str = ulver_utils_strndup(env, value, len);
+        uo->len = len;
+        uo->size += (len + 1);
+	// packages must be protected from gc
+	uo->gc_protected = 1;
+        ulver_utils_toupper(uo->str, uo->len);
+	// this is the map of exported symbols
+	uo->map = ulver_symbolmap_new(env);
+	// package names do not take the current namespace into account
+	ulver_symbolmap_set(env, env->packages, uo->str, uo->len, uo, 1);
+        return uo;
+}
+
 
 int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
         // is it a global var ?
         if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-                return ulver_symbolmap_delete(env, env->global_stack->locals, name, len);
+                return ulver_symbolmap_delete(env, env->global_stack->locals, name, len, 0);
         }
         ulver_stackframe *stack = env->stack;
         while(stack) {
-                if (!ulver_symbolmap_delete(env, stack->locals, name, len)) {
+                if (!ulver_symbolmap_delete(env, stack->locals, name, len, 0)) {
 			return 0;
 		}
                 stack = stack->prev;
@@ -378,11 +469,11 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_get(env, env->global_stack->locals, name, len);
+		return ulver_symbolmap_get(env, env->global_stack->locals, name, len, 0);
 	}	
 	ulver_stackframe *stack = env->stack;
 	while(stack) {
-		ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, name, len);
+		ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, name, len, 0);
 		if (us) return us;
 		stack = stack->prev;
 	}
@@ -436,11 +527,16 @@ ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
 }
 
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
+	// when trying to set an error, check if a previous one is set
 	if (env->error) {
-		env->free(env, env->error, env->error_buf_len);
-		env->error = NULL;
-		env->error_len = 0;
-		env->error_buf_len = 0;
+		// if we are not setting a new error, we are attempting to free it...
+		if (!fmt) {
+			env->free(env, env->error, env->error_buf_len);
+			env->error = NULL;
+			env->error_len = 0;
+			env->error_buf_len = 0;
+		}
+		return NULL;
 	}
 	if (!fmt) return NULL;
 	uint64_t buf_size = 1024;
@@ -475,12 +571,24 @@ fatal:
         return NULL;
 }
 
-ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
+static ulver_object *eval_do(ulver_env *env, ulver_form *uf, uint8_t as_list) {
 	ulver_object *ret = NULL;
 	switch(uf->type) {
 		// if it is a list, get the first member and eval it
 		case ULVER_LIST:
-			return ulver_call(env, uf->list);
+			if (!as_list) return ulver_call(env, uf->list);
+			ret = ulver_object_new(env, ULVER_LIST);
+			ulver_form *list = uf->list;
+			while(list) {
+				ulver_object *uo = ulver_eval(env, list);
+				if (!uo) {
+					ret = NULL;
+					break;
+				}
+				ulver_object_push(env, ret, uo);
+				list = list->next;
+			}
+			break;
 		// if it is a symbol, get its value
 		case ULVER_SYMBOL:
 			return ulver_object_from_symbol(env, uf);
@@ -508,12 +616,24 @@ ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
 	return ret;
 }
 
+ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
+	return eval_do(env, uf, 0);
+}
+
+ulver_object *ulver_eval_list(ulver_env *env, ulver_form *uf) {
+	return eval_do(env, uf, 1);
+}
+
 ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulver_object *(*func)(ulver_env *, ulver_form *), ulver_form *lambda_list, ulver_form *progn) {
 	ulver_object *uo = ulver_object_new(env, ULVER_FUNC);
         uo->func = func;
 	uo->lambda_list = lambda_list;
 	uo->progn = progn;
-        return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo);
+	uo->str = ulver_utils_strndup(env, name, len);
+        uo->len = len;
+        uo->size += (len + 1);
+        ulver_utils_toupper(uo->str, uo->len);
+        return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo, 0);
 }
 
 ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *)) {
@@ -523,54 +643,9 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo);
+		return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo, 0);
 	}	
-	return ulver_symbolmap_set(env, env->stack->locals, name, len, uo);
-}
-
-ulver_env *ulver_init() {
-
-	ulver_env *env = calloc(1, sizeof(ulver_env));
-
-	env->alloc = ulver_alloc;
-	env->free = ulver_free;
-
-	env->global_stack = ulver_stack_push(env);
-
-	// t and nil must be protected from gc
-
-	env->t = ulver_object_new(env, ULVER_TRUE);
-	env->t->gc_protected = 1;
-
-	env->nil = ulver_object_new(env, 0);
-	env->nil->gc_protected = 1;
-	
-	ulver_register_fun(env, "+", ulver_fun_add);
-	ulver_register_fun(env, "-", ulver_fun_sub);
-	ulver_register_fun(env, "*", ulver_fun_mul);
-	ulver_register_fun(env, ">", ulver_fun_higher);
-	ulver_register_fun(env, "=", ulver_fun_equal);
-	ulver_register_fun(env, "print", ulver_fun_print);
-	ulver_register_fun(env, "parse-integer", ulver_fun_parse_integer);
-	ulver_register_fun(env, "setq", ulver_fun_setq);
-	ulver_register_fun(env, "progn", ulver_fun_progn);
-	ulver_register_fun(env, "read-line", ulver_fun_read_line);
-	ulver_register_fun(env, "if", ulver_fun_if);
-	ulver_register_fun(env, "cond", ulver_fun_cond);
-	ulver_register_fun(env, "defun", ulver_fun_defun);
-	ulver_register_fun(env, "list", ulver_fun_list);
-	ulver_register_fun(env, "cons", ulver_fun_cons);
-	ulver_register_fun(env, "car", ulver_fun_car);
-	ulver_register_fun(env, "cdr", ulver_fun_cdr);
-	ulver_register_fun(env, "atom", ulver_fun_atom);
-	ulver_register_fun(env, "let", ulver_fun_let);
-	ulver_register_fun(env, "gc", ulver_fun_gc);
-	ulver_register_fun(env, "unintern", ulver_fun_unintern);
-	ulver_register_fun(env, "error", ulver_fun_error);
-	ulver_register_fun(env, "exit", ulver_fun_exit);
-	ulver_register_fun(env, "load", ulver_fun_load);
-
-	return env;
+	return ulver_symbolmap_set(env, env->stack->locals, name, len, uo, 0);
 }
 
 ulver_object *ulver_load(ulver_env *env, char *filename) {
@@ -623,6 +698,9 @@ uint64_t ulver_destroy(ulver_env *env) {
 	// call GC without stack
 	ulver_gc(env);
 
+	// destroy the packages map
+	ulver_symbolmap_destroy(env, env->packages);
+
 	// now destroy the form tree
 	ulver_form *root = env->form_root;
 	while(root) {
@@ -654,3 +732,61 @@ void ulver_report_error(ulver_env *env) {
                 ulver_error(env, NULL);
 	}
 }
+
+ulver_env *ulver_init() {
+
+        ulver_env *env = calloc(1, sizeof(ulver_env));
+
+        env->alloc = ulver_alloc;
+        env->free = ulver_free;
+
+        env->global_stack = ulver_stack_push(env);
+
+        // create the packages map
+        env->packages = ulver_symbolmap_new(env);
+        // create the CL-USER package and set it as current
+        env->cl_user = ulver_package(env, "CL-USER", 7);
+        env->current_package = env->cl_user;
+
+	ulver_symbol_set(env, "*package*", 9, env->cl_user);
+
+        // the following objects must be protected from gc
+
+        env->t = ulver_object_new(env, ULVER_TRUE);
+        env->t->gc_protected = 1;
+
+        env->nil = ulver_object_new(env, 0);
+        env->nil->gc_protected = 1;
+
+	// register functions
+
+        ulver_register_fun(env, "+", ulver_fun_add);
+        ulver_register_fun(env, "-", ulver_fun_sub);
+        ulver_register_fun(env, "*", ulver_fun_mul);
+        ulver_register_fun(env, ">", ulver_fun_higher);
+        ulver_register_fun(env, "=", ulver_fun_equal);
+        ulver_register_fun(env, "print", ulver_fun_print);
+        ulver_register_fun(env, "parse-integer", ulver_fun_parse_integer);
+        ulver_register_fun(env, "setq", ulver_fun_setq);
+        ulver_register_fun(env, "progn", ulver_fun_progn);
+        ulver_register_fun(env, "read-line", ulver_fun_read_line);
+        ulver_register_fun(env, "if", ulver_fun_if);
+        ulver_register_fun(env, "cond", ulver_fun_cond);
+        ulver_register_fun(env, "defun", ulver_fun_defun);
+        ulver_register_fun(env, "list", ulver_fun_list);
+        ulver_register_fun(env, "cons", ulver_fun_cons);
+        ulver_register_fun(env, "car", ulver_fun_car);
+        ulver_register_fun(env, "cdr", ulver_fun_cdr);
+        ulver_register_fun(env, "atom", ulver_fun_atom);
+        ulver_register_fun(env, "let", ulver_fun_let);
+        ulver_register_fun(env, "gc", ulver_fun_gc);
+        ulver_register_fun(env, "unintern", ulver_fun_unintern);
+        ulver_register_fun(env, "error", ulver_fun_error);
+        ulver_register_fun(env, "exit", ulver_fun_exit);
+        ulver_register_fun(env, "load", ulver_fun_load);
+        ulver_register_fun(env, "defpackage", ulver_fun_defpackage);
+        ulver_register_fun(env, "in-package", ulver_fun_in_package);
+
+        return env;
+}
+

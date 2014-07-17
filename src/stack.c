@@ -60,33 +60,93 @@ static void symbolmap_resize(ulver_env *env, ulver_symbolmap *smap) {
 	env->free(env, old_hashtable, sizeof(ulver_symbol *) * old_hashtable_size);
 }
 
-ulver_symbol *ulver_symbolmap_set(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len, ulver_object *uo) {
-	// first of all check for already existent item, and eventually update it
-	ulver_symbol *already = ulver_symbolmap_get(env, smap, name, len);
-	if (already) {
-		// update the value
-		already->value = uo;
-		return already;
-	}
+static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint8_t no_package) {
 
-	// do we need to resize the hashtable ?
-	if (smap->items + 1 > smap->hashtable_size) {
-		symbolmap_resize(env, smap);
-	}
+	if (no_package) return NULL;
 
-	// create the symbol
-	ulver_symbol *us = env->alloc(env, sizeof(ulver_symbol));
-	us->name = name;
-	us->len = len;
-	us->value = uo;
-	// place it in the hash map
-	symbol_hash(smap, us);
+	char *new_name = NULL;
 
-	smap->items++;
-	return us;
+        // first of all check for package prefix
+	char *colon = NULL;
+        if (*len > 2 && name[0] != ':' && (colon = memchr(name, ':', *len)) ) {
+                // now check if the package exists
+                ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, colon-name, 1);
+                if (!package) {
+                        ulver_error(env, "unable to find package %.*s", colon-name, name);
+			*len = 0;
+                        return NULL;
+                }
+                // the package exists, does it export the symbol ?
+                ulver_symbol *us = ulver_symbolmap_get(env, package->value->map, colon + 1, *len - ((colon + 1) - name), 1);
+                if (!us) {
+                        ulver_error(env, "package %.*s does not export symbol %.*s", colon-name, name, *len - ((colon + 1) - name), colon + 1);
+			*len = 0;
+                        return NULL;
+                }
+
+                // ok let's check it for the real symbol
+		return NULL;
+        }
+
+        // the symbol has no package prefix, use the current one (if not cl-user)
+        if (env->current_package == env->cl_user) return NULL;
+
+        // first of all check if the symbol is exported by the current package
+        ulver_symbol *us = ulver_symbolmap_get(env, env->current_package->map, name, *len, 1);
+        if (!us) return NULL;
+
+        // it is exported, let's prefix it (we use raw memory, as we will free it asap);
+        new_name = malloc(env->current_package->len + 1 + *len);
+        memcpy(new_name, env->current_package->str, env->current_package->len);
+        new_name[env->current_package->len] = ':';
+        memcpy(new_name + env->current_package->len + 1, name, *len);
+
+	*len += env->current_package->len + 1;
+
+        return new_name;
 }
 
-ulver_symbol *ulver_symbolmap_get(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len) {
+ulver_symbol *ulver_symbolmap_set(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len, ulver_object *uo, uint8_t no_package) {
+        // first of all check for already existent item, and eventually update it
+        ulver_symbol *already = ulver_symbolmap_get(env, smap, name, len, no_package);
+        if (already) {
+                // update the value
+                already->value = uo;
+                return already;
+        }
+
+	char *new_name = resolve_symbol_name(env, name, &len, no_package);
+        // a 0 length means error
+        if (!new_name && len == 0) return NULL;
+        if (new_name) name = new_name;
+
+        // do we need to resize the hashtable ?
+        if (smap->items + 1 > smap->hashtable_size) {
+                symbolmap_resize(env, smap);
+        }
+
+        // create the symbol
+        ulver_symbol *us = env->alloc(env, sizeof(ulver_symbol));
+        us->name = ulver_utils_strndup(env, name, len);;
+        us->len = len;
+        us->value = uo;
+        // place it in the hash map
+        symbol_hash(smap, us);
+
+        smap->items++;
+
+        if (new_name) free(new_name);
+        return us;
+}
+
+
+ulver_symbol *ulver_symbolmap_get(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len, uint8_t no_package) {
+
+
+	char *new_name = resolve_symbol_name(env, name, &len, no_package);
+	// a 0 length means error
+	if (!new_name && len == 0) return NULL;
+	if (new_name) name = new_name;
 
 	// hash the name
 	uint64_t hash = djb33x_hash(name, len) % smap->hashtable_size;
@@ -96,17 +156,24 @@ ulver_symbol *ulver_symbolmap_get(ulver_env *env, ulver_symbolmap *smap, char *n
 	while(us) {
 		if (us->len == len) {
 			if (!ulver_utils_memicmp(us->name, name, len)) {
+				if (new_name) free(new_name);
 				return us;
 			}
 		}
 		us = us->next;
 	}
+	if (new_name) free(new_name);
 	return NULL;
 }
 
-int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len) {
-	ulver_symbol *already = ulver_symbolmap_get(env, smap, name, len);
+int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, uint64_t len, uint8_t no_package) {
+	ulver_symbol *already = ulver_symbolmap_get(env, smap, name, len, no_package);
         if (!already) return -1;
+
+	char *new_name = resolve_symbol_name(env, name, &len, no_package);
+        // a 0 length means error
+        if (!new_name && len == 0) return -1;
+        if (new_name) name = new_name;
 
 	// get its hash
 	uint64_t hash = djb33x_hash(name, len) % smap->hashtable_size;
@@ -128,14 +195,17 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 				if (us == smap->hashtable[hash]) {
 					smap->hashtable[hash] = next;
 				}
+				env->free(env, us->name, us->len+1);
 				env->free(env, us, sizeof(ulver_symbol));
 				smap->items--;
+				if (new_name) free(new_name);
 				return 0;
                         }
                 }
                 us = us->next;
         }
 
+	if (new_name) free(new_name);
 	return -1;	
 }
 
@@ -149,25 +219,29 @@ ulver_stackframe *ulver_stack_push(ulver_env *env) {
 	return ustack;
 }
 
-void ulver_stack_pop(ulver_env *env) {
-	ulver_stackframe *ustack = env->stack;
-	env->stack = ustack->prev;
-
-	// re-hash all of the items
-        uint64_t i;
-        for(i=0;i<ustack->locals->hashtable_size;i++) {
-                ulver_symbol *us = ustack->locals->hashtable[i];
+void ulver_symbolmap_destroy(ulver_env *env, ulver_symbolmap *smap) {
+	uint64_t i;
+        for(i=0;i<smap->hashtable_size;i++) {
+                ulver_symbol *us = smap->hashtable[i];
                 while(us) {
                         // get the "next" symbol, before moving the current one
                         ulver_symbol *next = us->next;
-			env->free(env, us, sizeof(ulver_symbol));
+			env->free(env, us->name, us->len+1);
+                        env->free(env, us, sizeof(ulver_symbol));
                         us = next;
                 }
         }
 
-	env->free(env, ustack->locals->hashtable, sizeof(ulver_symbol *) * ustack->locals->hashtable_size);	
+        env->free(env, smap->hashtable, sizeof(ulver_symbol *) * smap->hashtable_size);
 
-	env->free(env, ustack->locals, sizeof(ulver_symbolmap));
+        env->free(env, smap, sizeof(ulver_symbolmap));	
+}
+
+void ulver_stack_pop(ulver_env *env) {
+	ulver_stackframe *ustack = env->stack;
+	env->stack = ustack->prev;
+
+	ulver_symbolmap_destroy(env, ustack->locals);
 
 	env->free(env, ustack, sizeof(ulver_stackframe));
 }
