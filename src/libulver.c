@@ -1,5 +1,26 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_getf(ulver_env *env, ulver_form *argv) {
+        if (!argv || !argv->next) return ulver_error(env, "getf requires two arguments");
+        ulver_object *plist = ulver_eval(env, argv);
+        if (!plist) return NULL;
+	if (plist->type != ULVER_LIST) return ulver_error(env, "getf expect a property list as the first argument");
+        ulver_object *place = ulver_eval(env, argv->next);
+        if (!place) return NULL;
+
+	ulver_object *key = plist->list;
+	while(key) {
+		if (ulver_utils_eq(key, place)) {
+			if (key->next) return key->next;
+			return ulver_error(env, "the property list has an odd length");
+		}
+		ulver_object *value = key->next;	
+		if (!value) return ulver_error(env, "the property list has an odd length");
+		key = value->next;
+	}
+        return env->nil;
+}
+
 ulver_object *ulver_fun_eq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "eq requires two arguments");
 	ulver_object *uo1 = ulver_eval(env, argv);
@@ -884,6 +905,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "defpackage", ulver_fun_defpackage);
         ulver_register_fun(env, "in-package", ulver_fun_in_package);
         ulver_register_fun(env, "eq", ulver_fun_eq);
+        ulver_register_fun(env, "getf", ulver_fun_getf);
 
         return env;
 }

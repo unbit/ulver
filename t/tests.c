@@ -107,4 +107,6 @@ void tests() {
 	test_true("(eq (+ 1 2) 3)");
 	test_true("(eq :test :test");
 	test_true("(atom :hello)");
+
+	test_num("(setq themap (list :foo 17 :bar 30 :fake))(getf themap :bar)", 30);
 }
