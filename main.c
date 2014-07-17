@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
                 	if (ret == NULL) {
                         	if (env->error) {
                                		printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
+					// clear error
+					ulver_error(env, NULL);
                         	}
                 	}
 			else {

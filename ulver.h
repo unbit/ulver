@@ -156,3 +156,5 @@ void ulver_form_destroy(ulver_env *, ulver_form *);
 
 char *ulver_utils_strndup(ulver_env *, char *, uint64_t);
 char *ulver_utils_strdup(ulver_env *, char *);
+
+ulver_object *ulver_load(ulver_env *, char *);

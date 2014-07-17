@@ -1,5 +1,16 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "load requires an argument");
+	ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
+	if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string"); 
+	char *filename = strndup(uo->str, uo->len);
+	ulver_object *ret = ulver_load(env, filename);
+	free(filename);
+	return ret;
+}
+
 ulver_object *ulver_fun_exit(ulver_env *env, ulver_form *argv) {
 	ulver_destroy(env);
 	exit(0);
@@ -557,6 +568,7 @@ ulver_env *ulver_init() {
 	ulver_register_fun(env, "unintern", ulver_fun_unintern);
 	ulver_register_fun(env, "error", ulver_fun_error);
 	ulver_register_fun(env, "exit", ulver_fun_exit);
+	ulver_register_fun(env, "load", ulver_fun_load);
 
 	return env;
 }
@@ -564,31 +576,31 @@ ulver_env *ulver_init() {
 ulver_object *ulver_load(ulver_env *env, char *filename) {
 	int fd = open(filename, O_RDONLY);
         if (fd < 0) {
-		return ulver_error(env, "unable to open() file %s: %s\n", filename, strerror(errno));
+		return ulver_error(env, "unable to open() file %s: %s", filename, strerror(errno));
         }
 
         struct stat st;
         if (fstat(fd, &st)) {
-		return ulver_error(env, "unable to stat() file %s: %s\n", filename, strerror(errno));
+		return ulver_error(env, "unable to stat() file %s: %s", filename, strerror(errno));
         }
 
 	// we use low-level emory allocation, as it will be freed soon
         char *buf = malloc(st.st_size);
         if (!buf) {
-		return ulver_error(env, "unable to malloc() for file %s: %s\n", filename, strerror(errno));
+		return ulver_error(env, "unable to malloc() for file %s: %s", filename, strerror(errno));
         }
 
         ssize_t rlen = read(fd, buf, st.st_size);
         if (rlen != st.st_size) {
 		free(buf);
-		return ulver_error(env, "unable to read() file %s: %s\n", filename, strerror(errno));
+		return ulver_error(env, "unable to read() file %s: %s", filename, strerror(errno));
         }
 
         ulver_form *uf = ulver_parse(env, buf, rlen);
 	free(buf);
 	ulver_object *ret = NULL;
         while(uf) {
-                ulver_object *ret = ulver_eval(env, uf);
+		ret = ulver_eval(env, uf);
                 if (ret == NULL) break;
                 uf = uf->next;
         }
@@ -627,8 +639,6 @@ void ulver_destroy(ulver_env *env) {
 		env->free(env, source, sizeof(ulver_source));
 		source = next;
 	}
-
-	printf("mem = %lld\n", env->mem);
 
 	free(env);
 }
