@@ -127,7 +127,13 @@ ulver_symbol *ulver_symbolmap_set(ulver_env *env, ulver_symbolmap *smap, char *n
 
         // create the symbol
         ulver_symbol *us = env->alloc(env, sizeof(ulver_symbol));
-        us->name = ulver_utils_strndup(env, name, len);;
+	if (new_name) {
+        	us->name = ulver_utils_strndup(env, name, len);;
+		us->free_name = 1;
+	}
+	else {
+		us->name = name;
+	}
         us->len = len;
         us->value = uo;
         // place it in the hash map
@@ -195,7 +201,7 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 				if (us == smap->hashtable[hash]) {
 					smap->hashtable[hash] = next;
 				}
-				env->free(env, us->name, us->len+1);
+				if (us->free_name) env->free(env, us->name, us->len+1);
 				env->free(env, us, sizeof(ulver_symbol));
 				smap->items--;
 				if (new_name) free(new_name);
@@ -226,7 +232,7 @@ void ulver_symbolmap_destroy(ulver_env *env, ulver_symbolmap *smap) {
                 while(us) {
                         // get the "next" symbol, before moving the current one
                         ulver_symbol *next = us->next;
-			env->free(env, us->name, us->len+1);
+			if (us->free_name) env->free(env, us->name, us->len+1);
                         env->free(env, us, sizeof(ulver_symbol));
                         us = next;
                 }

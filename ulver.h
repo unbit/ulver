@@ -112,6 +112,7 @@ struct ulver_symbol {
         ulver_object *value;
         ulver_symbol *prev;
         ulver_symbol *next;
+	uint8_t free_name;
 };
 
 void ulver_utils_print_list(ulver_env *, ulver_object *);
