@@ -1,7 +1,12 @@
 OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/libulver.o
+ifeq ($(OS), Windows_NT)
+	LIBS=
+else
+	LIBS=-lreadline
+endif
 
 all: libulver.a libulver.so
-	$(CC) -I. -Wno-format -g -o ulver main.c libulver.a -lreadline
+	$(CC) -I. -Wno-format -g -o ulver main.c libulver.a $(LIBS)
 
 src/%.o: src/%.c
 	$(CC) -I. -fPIC -Wno-format -g -o $@ -c $<

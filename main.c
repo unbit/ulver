@@ -1,6 +1,8 @@
 #include <ulver.h>
+#ifndef __WIN32__
 #include <readline/readline.h>
 #include <readline/history.h>
+#endif
 
 void cleanup() {
 	printf("\n");
@@ -16,9 +18,22 @@ int main(int argc, char **argv) {
 		//
 		char buf[8192];
 		for(;;) {
+#ifndef __WIN32__
 			char *line = readline("> ");
 			if (!line) continue;
 			add_history(line);
+#else
+			printf("> ");
+			char *line = malloc(8192);
+			if (!line) {
+				perror("malloc()");
+				exit(1);
+			}
+			if (!fgets(line, 8192, stdin)) {
+				free(line);
+				continue;
+			}		
+#endif
                 	size_t len = strlen(line);
 			ulver_form *uf = ulver_parse(env, line, len);		
 			free(line);
