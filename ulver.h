@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <errno.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1

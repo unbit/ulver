@@ -561,6 +561,40 @@ ulver_env *ulver_init() {
 	return env;
 }
 
+ulver_object *ulver_load(ulver_env *env, char *filename) {
+	int fd = open(filename, O_RDONLY);
+        if (fd < 0) {
+		return ulver_error(env, "unable to open() file %s: %s\n", filename, strerror(errno));
+        }
+
+        struct stat st;
+        if (fstat(fd, &st)) {
+		return ulver_error(env, "unable to stat() file %s: %s\n", filename, strerror(errno));
+        }
+
+	// we use low-level emory allocation, as it will be freed soon
+        char *buf = malloc(st.st_size);
+        if (!buf) {
+		return ulver_error(env, "unable to malloc() for file %s: %s\n", filename, strerror(errno));
+        }
+
+        ssize_t rlen = read(fd, buf, st.st_size);
+        if (rlen != st.st_size) {
+		free(buf);
+		return ulver_error(env, "unable to read() file %s: %s\n", filename, strerror(errno));
+        }
+
+        ulver_form *uf = ulver_parse(env, buf, rlen);
+	free(buf);
+	ulver_object *ret = NULL;
+        while(uf) {
+                ulver_object *ret = ulver_eval(env, uf);
+                if (ret == NULL) break;
+                uf = uf->next;
+        }
+	return ret;
+}
+
 void ulver_destroy(ulver_env *env) {
 	// clear errors (if any)
 	ulver_error(env, NULL);
