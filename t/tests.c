@@ -119,5 +119,7 @@ void tests() {
 	test_num("(ninth (list 1 2 3 4 5 6 7 8 9 10 11))", 9);
 	test_num("(tenth (list 1 2 3 4 5 6 7 8 9 10 11))", 10);
 
+	test_true("(setq highnumber 300)(if (> highnumber 299) (eq :a :a))");
+
 	test_num("(setq themap (list :foo 17 :bar 30 :fake))(getf themap :bar)", 30);
 }
