@@ -44,6 +44,14 @@ Instead, if you pass a filename to the ulver command it will parse it
 ./ulver myscript.lisp
 ```
 
+If you want to run the test suite, just do
+
+```sh
+make test
+```
+
+from the sources directory
+
 Embedding
 =========
 
@@ -104,6 +112,20 @@ gcc -I. -o example example.c -lulver
 ```
 
 (oviously you can copy ulver.h to an include directory and avoid the -I. flag)
+
+A bunch of shortcuts are available:
+
+```c
+ulver_object *ulver_run(ulver_env *env, char *source); 
+```
+
+parse and evaluate the "source" string, returning a ulver_object structure
+
+```c
+ulver_object *ulver_load(ulver_env *env, char *filename); 
+```
+
+parse and evaluate the specified filename, returning a ulver_object structure
 
 Status
 ======
