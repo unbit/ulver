@@ -70,6 +70,9 @@ void tests() {
 	test_num("(+ 1 (parse-integer \"172\" ))", 173);
 	test_num("(* 2 2)", 4);
 	test_num("(* 2 0)", 0);
+	test_num("(- 1)", -1);
+	test_num("(- 1 3)", -2);
+	test_num("(- 1 -2)", 3);
 
 	test_true("(eq 1 1)");
 	test_true("(eq (+ 1 2) 3)");

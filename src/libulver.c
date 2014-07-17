@@ -95,6 +95,7 @@ ulver_object *ulver_fun_exit(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_error(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "error requires an argument");
 	if (argv->type != ULVER_STRING) {
 		return ulver_error_form(env, argv, "must be a string"); 
 	}
@@ -102,6 +103,8 @@ ulver_object *ulver_fun_error(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "unintern requires an argument");
+	if (argv->type != ULVER_SYMBOL) return ulver_error(env, "unintern requires a symbol name as argument");
 	if (!ulver_symbol_delete(env, argv->value, argv->len)) {
 		return env->t;
 	}
@@ -128,7 +131,7 @@ ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
 			d += uo->d;
 		}
 		else {
-			return ulver_error_form(env, argv, "argument is not a number"); 
+			return ulver_error_form(env, argv, "argument is not a number or a float"); 
 		}
 		argv = argv->next;
 	}
@@ -141,14 +144,48 @@ ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_sub(ulver_env *env, ulver_form *argv) {
-        int64_t n = ulver_eval(env, argv)->n;
-	argv = argv->next;
-        while(argv) {
-                ulver_object *uo = ulver_eval(env, argv);
-                n -= uo->n;
-                argv = argv->next;
+	if (!argv) return ulver_error(env, "- requires an argument");
+	int64_t n = 0;
+        double d = 0.0;
+        uint8_t is_float = 0;
+	ulver_form *item = argv->next;
+        while(item) {
+                ulver_object *uo = ulver_eval(env, item);
+                if (!uo) return NULL;
+                if (uo->type == ULVER_NUM) {
+                        n += uo->n;
+                }
+                else if (uo->type == ULVER_FLOAT) {
+                        is_float = 1;
+                        d += uo->d;
+                }
+                else {
+                        return ulver_error_form(env, item, "argument is not a number or a float");
+                }
+                item = item->next;
         }
-        return ulver_object_from_num(env, n);
+
+        if (is_float) {
+		ulver_object *uo = ulver_eval(env, argv);
+		if (!uo) return NULL;
+		if (uo->type == ULVER_NUM) {
+                	return ulver_object_from_float(env, uo->n - (d+n));
+		}
+		else if (uo->type == ULVER_FLOAT) {
+                	return ulver_object_from_float(env, uo->d - (d+n));
+		}
+		return ulver_error_form(env, argv, "argument is not a number or a float");
+        }
+
+	ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type == ULVER_NUM) {
+        	return ulver_object_from_num(env, argv->next ? uo->n - n :  - uo->n);
+        }
+        else if (uo->type == ULVER_FLOAT) {
+        	return ulver_object_from_float(env, argv->next ? uo->d - n: - uo->d);
+        }
+        return ulver_error_form(env, argv, "argument is not a number or a float");
 }
 
 
