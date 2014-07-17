@@ -215,7 +215,9 @@ ulver_object *ulver_fun_mul(ulver_env *env, ulver_form *argv) {
         return ulver_object_from_num(env, n);
 }
 
+// TODO fix it
 ulver_object *ulver_fun_higher(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "higher requires an argument");	
 	ulver_object *uo0 = ulver_eval(env, argv);
 	ulver_object *uo1 = ulver_eval(env, argv->next);
 	int64_t n0 = uo0->n;
@@ -223,7 +225,9 @@ ulver_object *ulver_fun_higher(ulver_env *env, ulver_form *argv) {
 	return n0 > n1 ? env->t : env->nil;
 }
 
+// TODO fix it
 ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "higher requires an argument");	
 	ulver_object *uo0 = ulver_eval(env, argv);
 	ulver_object *uo1 = ulver_eval(env, argv->next);
 	int64_t n0 = uo0->n;
@@ -250,11 +254,13 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 }
 
 ulver_object *ulver_fun_defun(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "defun requires two arguments");	
 	ulver_symbol *us = ulver_register_fun2(env, argv->value, argv->len, ulver_fun_call_with_lambda_list, argv->next->list, argv->next->next);
 	return us->value;
 }
 
 ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "car requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo->list) {
 		return env->nil;
@@ -263,6 +269,7 @@ ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_atom(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "atom requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
         if (!uo->list) {
                 return env->t;
@@ -271,6 +278,7 @@ ulver_object *ulver_fun_atom(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_cdr(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "cdr requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo->list) return env->nil;
 	if (!uo->list->next) return env->nil;
@@ -284,6 +292,7 @@ ulver_object *ulver_fun_cdr(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_cons(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "cons requires two arguments");
         ulver_object *cons = ulver_object_new(env, ULVER_LIST);
         ulver_object_push(env, cons, ulver_eval(env, argv));
         ulver_object_push(env, cons, ulver_eval(env, argv->next));
@@ -291,6 +300,7 @@ ulver_object *ulver_fun_cons(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "list requires an argument");
 	ulver_object *list = ulver_object_new(env, ULVER_LIST);
 	while(argv) {
 		ulver_object_push(env, list, ulver_eval(env, argv));
@@ -300,6 +310,7 @@ ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_if(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "if requires two arguments");
 	ulver_object *uo = ulver_eval(env, argv);
 	if (uo != env->nil) {
 		return ulver_eval(env, argv->next);
@@ -328,7 +339,9 @@ ulver_object *ulver_fun_cond(ulver_env *env, ulver_form *argv) {
         return env->nil;
 }
 
+// TODO check for symbol
 ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "let requires an argument");
 	ulver_form *vars = argv->list;
 	while(vars) {
 		ulver_form *var = vars->list;	
@@ -339,8 +352,11 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
         return ulver_eval(env, argv->next);
 }
 
+// TODO check for symbol
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "setq requires two arguments");
 	ulver_object *uo = ulver_eval(env, argv->next);
+	if (!uo) return NULL;
 	ulver_symbol *us = ulver_symbolmap_set(env, env->global_stack->locals, argv->value, argv->len, uo, 0);
 	if (!us) return NULL;
 	return uo;
@@ -356,6 +372,7 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
+// TODO find a way to better manage memory
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 	char buf[8192];
 	if (fgets(buf, 8192, stdin)) {
@@ -367,6 +384,7 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "print requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);	
 	if (!uo) return NULL;
 	if (uo->type == 0) {
@@ -398,7 +416,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
+// TODO find something better (and safer) than strtoll
 ulver_object *ulver_fun_parse_integer(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "parse-integer requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
 	if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "parse-integer expects a string");
