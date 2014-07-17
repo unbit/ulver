@@ -30,6 +30,24 @@ void test_num(char *s, uint64_t n) {
 	tests_successfull++;
 }
 
+void test_true(char *s) {
+        printf("- running test_true for \"%s\"\n", s);
+        ulver_object *ret = ulver_run(env, s);
+        if (!ret) {
+                ulver_report_error(env);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->type != ULVER_TRUE) {
+                printf("[FAILED] test for %s: object is not true\n", s);
+                tests_failed++;
+                return;
+        }
+
+        tests_successfull++;
+}
+
 int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
@@ -52,4 +70,9 @@ void tests() {
 	test_num("(+ 1 (parse-integer \"172\" ))", 173);
 	test_num("(* 2 2)", 4);
 	test_num("(* 2 0)", 0);
+
+	test_true("(eq 1 1)");
+	test_true("(eq (+ 1 2) 3)");
+	test_true("(eq :test :test");
+	test_true("(atom :hello)");
 }
