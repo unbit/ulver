@@ -20,6 +20,9 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 else if (item->type == ULVER_FLOAT) {
                 	printf("%f", item->d);
                 }
+                else if (item->type == ULVER_TRUE) {
+                	printf("T");
+                }
 		else if (item->type == ULVER_PACKAGE) {
                         printf("#<PACKAGE %.*s>", (int) item->len, item->str);
                 }
@@ -116,8 +119,10 @@ int ulver_utils_eq(ulver_object *uo1, ulver_object *uo2) {
 	switch(uo1->type) {
 		case ULVER_NUM:
 			if (uo1->n == uo2->n) return 1;
+			break;
 		case ULVER_FLOAT:
 			if (uo1->d == uo2->d) return 1;
+			break;
 		case ULVER_KEYWORD:
 			if (uo1->len != uo2->len) return 0;
 			if (!ulver_utils_memicmp(uo1->str, uo2->str, uo1->len)) return 1;

@@ -333,6 +333,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_FLOAT) {
 		printf("\n%f ", uo->d);
 	}
+	else if (uo->type == ULVER_TRUE) {
+		printf("\nT ");
+	}
 	else if (uo->type == ULVER_PACKAGE) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
