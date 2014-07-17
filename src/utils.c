@@ -9,10 +9,10 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 	printf(")");
                 }
                 else if (item->type == ULVER_STRING) {
-                	printf("\"%.*s\"", item->len, item->str);
+                	printf("\"%.*s\"", (int) item->len, item->str);
                 }
                 else if (item->type == ULVER_KEYWORD) {
-                	printf("%.*s", item->len, item->str);
+                	printf("%.*s", (int) item->len, item->str);
                 }
                 else if (item->type == ULVER_NUM) {
                 	printf("%lld", item->n);
@@ -21,7 +21,7 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 	printf("%f", item->d);
                 }
 		else {
-                	printf("?%.*s?", item->len, item->str);
+                	printf("?%.*s?", (int) item->len, item->str);
 		}
                 if (item->next) {
                 	printf(" ");

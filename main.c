@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 			ulver_object *ret = ulver_fun_print(env, uf);
                 	if (ret == NULL) {
                         	if (env->error) {
-                               		printf("\n*** ERROR: %.*s ***\n", env->error_len, env->error);
+                               		printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
                         	}
                 	}
 			else {
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
 		ulver_object *ret = ulver_eval(env, uf);
 		if (ret == NULL) {
 			if (env->error) {
-				printf("\n*** ERROR: %.*s ***\n", env->error_len, env->error);
+				printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
 			}
 			exit(1);
 		}

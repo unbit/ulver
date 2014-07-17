@@ -232,10 +232,10 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
                 printf(") ");
 	}
 	else if (uo->type == ULVER_STRING) {
-		printf("\n\"%.*s\" ", uo->len, uo->str);
+		printf("\n\"%.*s\" ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_KEYWORD) {
-		printf("\n%.*s ", uo->len, uo->str);
+		printf("\n%.*s ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_NUM) {
 		printf("\n%lld ", uo->n);
@@ -244,7 +244,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		printf("\n%f ", uo->d);
 	}
 	else {
-		printf("\n?%.*s? ", uo->len, uo->str);
+		printf("\n?%.*s? ", (int) uo->len, uo->str);
 	}
         return uo;
 }
@@ -421,7 +421,7 @@ ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 }
 
 ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
-	return ulver_error(env, "[line: %llu pos: %lld] (%.*s) %s", uf->line, uf->line_pos, uf->len, uf->value, msg);
+	return ulver_error(env, "[line: %llu pos: %lld] (%.*s) %s", uf->line, uf->line_pos, (int) uf->len, uf->value, msg);
 }
 
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
