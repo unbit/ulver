@@ -1,5 +1,15 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_eq(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "eq requires two arguments");
+	ulver_object *uo1 = ulver_eval(env, argv);
+	if (!uo1) return NULL;
+	ulver_object *uo2 = ulver_eval(env, argv->next);
+	if (!uo2) return NULL;
+	if (ulver_utils_eq(uo1, uo2)) return env->t;
+	return env->nil;
+}
+
 ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "in-package requires an argument");
 	ulver_object *package_name = ulver_eval(env, argv);
@@ -324,7 +334,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		printf("\n%f ", uo->d);
 	}
 	else if (uo->type == ULVER_PACKAGE) {
-		printf("\n#<PACKAGE %.*s> ", uo->len, uo->str);
+		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
 	else {
 		printf("\n?%.*s? ", (int) uo->len, uo->str);
@@ -682,6 +692,17 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 	return ret;
 }
 
+ulver_object *ulver_run(ulver_env *env, char *source) {
+	ulver_form *uf = ulver_parse(env, source, strlen(source));
+        ulver_object *ret = NULL;
+        while(uf) {
+                ret = ulver_eval(env, uf);
+                if (ret == NULL) break;
+                uf = uf->next;
+        }
+        return ret;
+}
+
 uint64_t ulver_destroy(ulver_env *env) {
 	// clear errors (if any)
 	ulver_error(env, NULL);
@@ -786,6 +807,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "load", ulver_fun_load);
         ulver_register_fun(env, "defpackage", ulver_fun_defpackage);
         ulver_register_fun(env, "in-package", ulver_fun_in_package);
+        ulver_register_fun(env, "eq", ulver_fun_eq);
 
         return env;
 }

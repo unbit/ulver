@@ -6,16 +6,22 @@ else
 endif
 
 all: libulver.a libulver.so
-	$(CC) -I. -Wno-format -g -o ulver main.c libulver.a $(LIBS)
+	$(CC) -I. -g -o ulver main.c libulver.a $(LIBS)
 
 src/%.o: src/%.c
-	$(CC) -I. -fPIC -Wno-format -g -o $@ -c $<
+	$(CC) -I. -fPIC -g -o $@ -c $<
 
 libulver.a: $(OBJECTS) 
 	$(AR) rcs libulver.a $(OBJECTS)
 
 libulver.so:
 	$(CC) -shared -o libulver.so $(OBJECTS)
+
+test: libulver.a
+	@$(CC) -I. -g -o ulver_tests t/tests.c libulver.a
+	@./ulver_tests
+	@rm ulver_tests
+
 
 clean:
 	rm -f src/*.o libulver.a libulver.so ulver

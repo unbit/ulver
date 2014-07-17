@@ -172,3 +172,7 @@ void ulver_report_error(ulver_env *);
 ulver_symbolmap *ulver_symbolmap_new(ulver_env *);
 
 ulver_object *ulver_package(ulver_env *, char *, uint64_t);
+
+int ulver_utils_eq(ulver_object *, ulver_object *);
+
+ulver_object *ulver_run(ulver_env *, char *);

@@ -1,0 +1,55 @@
+#include <ulver.h>
+
+ulver_env *env = NULL;
+uint64_t tests_successfull = 0;
+uint64_t tests_failed = 0;
+
+void tests();
+
+void test_num(char *s, uint64_t n) {
+	printf("- running test_num for \"%s\", expect %lld\n", s, n);
+	ulver_object *ret = ulver_run(env, s);
+	if (!ret) {
+		ulver_report_error(env);
+		tests_failed++;
+		return;
+	}
+
+	if (ret->type != ULVER_NUM) {
+		printf("[FAILED] test for %s: object is not a number\n", s);
+		tests_failed++;
+                return;
+	}
+
+	if (ret->n != n) {
+		printf("[FAILED] test for %s: %lld is not %lld\n", s, ret->n, n);
+                tests_failed++;
+                return;
+	}
+
+	tests_successfull++;
+}
+
+int main(int argc, char **argv) {
+	printf("*** TESTING ulver ***\n\n");
+	env = ulver_init();
+
+	tests();
+
+	printf("\n*** END OF TESTS ***\n");
+	printf("SUCCESSFULL TESTS: %llu\n", tests_successfull);
+	printf("FAILED TESTS: %llu\n", tests_failed);
+
+	uint64_t mem = ulver_destroy(env);
+	printf("LEAKED MEMORY: %llu\n", mem);
+
+	exit(tests_failed);
+}
+
+void tests() {
+	test_num("(+ 1 1)", 2);
+	test_num("(+ 1 2 3 (* 2 2))", 10);
+	test_num("(+ 1 (parse-integer \"172\" ))", 173);
+	test_num("(* 2 2)", 4);
+	test_num("(* 2 0)", 0);
+}
