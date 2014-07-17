@@ -176,3 +176,5 @@ ulver_object *ulver_package(ulver_env *, char *, uint64_t);
 int ulver_utils_eq(ulver_object *, ulver_object *);
 
 ulver_object *ulver_run(ulver_env *, char *);
+
+ulver_object *ulver_utils_nth(ulver_object *, uint64_t);

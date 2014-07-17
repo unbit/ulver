@@ -108,5 +108,16 @@ void tests() {
 	test_true("(eq :test :test");
 	test_true("(atom :hello)");
 
+	test_num("(first (list 1 2 3 4 5 6 7 8 9 10 11))", 1);
+	test_num("(second (list 1 2 3 4 5 6 7 8 9 10 11))", 2);
+	test_num("(third (list 1 2 3 4 5 6 7 8 9 10 11))", 3);
+	test_num("(fourth (list 1 2 3 4 5 6 7 8 9 10 11))", 4);
+	test_num("(fifth (list 1 2 3 4 5 6 7 8 9 10 11))", 5);
+	test_num("(sixth (list 1 2 3 4 5 6 7 8 9 10 11))", 6);
+	test_num("(seventh (list 1 2 3 4 5 6 7 8 9 10 11))", 7);
+	test_num("(eighth (list 1 2 3 4 5 6 7 8 9 10 11))", 8);
+	test_num("(ninth (list 1 2 3 4 5 6 7 8 9 10 11))", 9);
+	test_num("(tenth (list 1 2 3 4 5 6 7 8 9 10 11))", 10);
+
 	test_num("(setq themap (list :foo 17 :bar 30 :fake))(getf themap :bar)", 30);
 }

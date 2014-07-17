@@ -132,3 +132,16 @@ int ulver_utils_eq(ulver_object *uo1, ulver_object *uo2) {
 	}
 	return 0;
 }
+
+ulver_object *ulver_utils_nth(ulver_object *list, uint64_t n) {
+	uint64_t count = 0;
+	ulver_object *item = list->list;
+	while(item) {
+		count++;
+		if (count == n) {
+			return item;
+		}	
+		item = item->next;
+	}
+	return NULL;
+}

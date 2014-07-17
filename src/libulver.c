@@ -1,5 +1,107 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_first(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "first requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 1);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_second(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "second requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 2);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_third(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "third requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 3);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_fourth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "fourth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 4);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_fifth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "fifth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 5);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_sixth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "sixth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 6);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_seventh(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "seventh requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 7);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_eighth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "eighth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 8);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_ninth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "ninth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 9);
+	if (ret) return ret;
+	return env->nil;
+}
+
+ulver_object *ulver_fun_tenth(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "tenth requires an argument");	
+	ulver_object *list = ulver_eval(env, argv);
+	if (!list) return NULL;
+	if (list->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+	ulver_object *ret = ulver_utils_nth(list, 10);
+	if (ret) return ret;
+	return env->nil;
+}
+
+
+
 ulver_object *ulver_fun_getf(ulver_env *env, ulver_form *argv) {
         if (!argv || !argv->next) return ulver_error(env, "getf requires two arguments");
         ulver_object *plist = ulver_eval(env, argv);
@@ -906,6 +1008,17 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "in-package", ulver_fun_in_package);
         ulver_register_fun(env, "eq", ulver_fun_eq);
         ulver_register_fun(env, "getf", ulver_fun_getf);
+
+        ulver_register_fun(env, "first", ulver_fun_first);
+        ulver_register_fun(env, "second", ulver_fun_second);
+        ulver_register_fun(env, "third", ulver_fun_third);
+        ulver_register_fun(env, "fourth", ulver_fun_fourth);
+        ulver_register_fun(env, "fifth", ulver_fun_fifth);
+        ulver_register_fun(env, "sixth", ulver_fun_sixth);
+        ulver_register_fun(env, "seventh", ulver_fun_seventh);
+        ulver_register_fun(env, "eighth", ulver_fun_eighth);
+        ulver_register_fun(env, "ninth", ulver_fun_ninth);
+        ulver_register_fun(env, "tenth", ulver_fun_tenth);
 
         return env;
 }
