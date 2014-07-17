@@ -24,12 +24,19 @@ typedef struct ulver_form ulver_form;
 typedef struct ulver_symbol ulver_symbol;
 typedef struct ulver_stackframe ulver_stackframe;
 typedef struct ulver_symbolmap ulver_symbolmap;
+typedef struct ulver_source ulver_source;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
 	ulver_symbolmap *locals;
 	ulver_symbolmap *fun_locals;
 	ulver_object *ret;
+};
+
+struct ulver_source {
+	char *str;
+	uint64_t len;
+	ulver_source *next;
 };
 
 struct ulver_env {
@@ -55,6 +62,7 @@ struct ulver_env {
 	ulver_form *form_list_current;
 	ulver_form *form_new;
 	uint8_t is_quoted;
+	ulver_source *sources;
 };
 
 struct ulver_object {

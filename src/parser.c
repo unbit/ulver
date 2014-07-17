@@ -72,12 +72,27 @@ ulver_form *ulver_form_commit(ulver_env *env) {
 
 ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
-	env->form_new = NULL;
+	// append the new source to the env
+	ulver_source *source = env->alloc(env, sizeof(ulver_source));
+	source->str = ulver_utils_strndup(env, buf, len);
+	source->len = len;
+	if (env->sources) {
+		ulver_source *first = env->sources;
+		source->next = first;
+	}
+	env->sources = source;
+
+	// use the new memory
+	buf = source->str;
 
 	// create the root form (if needed)
 	if (!env->form_root) {
 		env->form_root = ulver_form_new(env, ULVER_LIST);
+		
 	}
+
+	// form_new is what the parser returns
+	env->form_new = NULL;
 	env->form_list_current = env->form_root;
 
 	int is_escaped = 0;

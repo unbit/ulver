@@ -425,6 +425,13 @@ ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
 }
 
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
+	if (env->error) {
+		env->free(env, env->error, env->error_buf_len);
+		env->error = NULL;
+		env->error_len = 0;
+		env->error_buf_len = 0;
+	}
+	if (!fmt) return NULL;
 	uint64_t buf_size = 1024;
 	char *buf = env->alloc(env, buf_size);
 	va_list varg;
@@ -555,6 +562,8 @@ ulver_env *ulver_init() {
 }
 
 void ulver_destroy(ulver_env *env) {
+	// clear errors (if any)
+	ulver_error(env, NULL);
 	// unprotect objects
 	ulver_object *uo = env->gc_root;
 	while(uo) {
@@ -565,24 +574,25 @@ void ulver_destroy(ulver_env *env) {
 	while(env->stack) {
 		ulver_stack_pop(env);	
 	}
+	// call GC without stack
 	ulver_gc(env);
-	printf("mem = %lld\n", env->mem);
-	uo = env->gc_root;
-	while(uo) {
-		printf("uo = %p %d\n", uo, uo->type);
-		uo = uo->gc_next;
-	}
 
-	printf("%p\n", env->stack);
-
-	// now destroy the form three
+	// now destroy the form tree
 	ulver_form *root = env->form_root;
-	printf("root = %p\n", root);
 	while(root) {
 		ulver_form *next = root->next;
 		ulver_form_destroy(env, root);
 		root = next;
 	}	
+
+	// and the sources list
+	ulver_source *source = env->sources;
+	while(source) {
+		ulver_source *next = source->next;
+		env->free(env, source->str, source->len+1);
+		env->free(env, source, sizeof(ulver_source));
+		source = next;
+	}
 
 	printf("mem = %lld\n", env->mem);
 
