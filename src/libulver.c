@@ -607,7 +607,7 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 	return ret;
 }
 
-void ulver_destroy(ulver_env *env) {
+uint64_t ulver_destroy(ulver_env *env) {
 	// clear errors (if any)
 	ulver_error(env, NULL);
 	// unprotect objects
@@ -640,5 +640,17 @@ void ulver_destroy(ulver_env *env) {
 		source = next;
 	}
 
+	uint64_t mem = env->mem;
+
 	free(env);
+
+	return mem;
+}
+
+void ulver_report_error(ulver_env *env) {
+	if (env->error) {
+		printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
+                // clear error
+                ulver_error(env, NULL);
+	}
 }

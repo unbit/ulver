@@ -150,7 +150,7 @@ int ulver_utils_is_a_number(char *, uint64_t);
 int ulver_utils_is_a_float(char *, uint64_t);
 
 ulver_env *ulver_init();
-void ulver_destroy(ulver_env *);
+uint64_t ulver_destroy(ulver_env *);
 
 void ulver_form_destroy(ulver_env *, ulver_form *);
 
@@ -158,3 +158,4 @@ char *ulver_utils_strndup(ulver_env *, char *, uint64_t);
 char *ulver_utils_strdup(ulver_env *, char *);
 
 ulver_object *ulver_load(ulver_env *, char *);
+void ulver_report_error(ulver_env *);

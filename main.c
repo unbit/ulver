@@ -43,11 +43,7 @@ int main(int argc, char **argv) {
 			}
 			ulver_object *ret = ulver_fun_print(env, uf);
                 	if (ret == NULL) {
-                        	if (env->error) {
-                               		printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
-					// clear error
-					ulver_error(env, NULL);
-                        	}
+				ulver_report_error(env);
                 	}
 			else {
 				printf("\n");
@@ -57,39 +53,16 @@ int main(int argc, char **argv) {
 		exit(0);
 	}
 
-	int fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		perror("open()");
-		exit(1);
+	int exit_value = 0;
+	ulver_object *ret = ulver_load(env, argv[1]);
+	if (ret == NULL) {
+		ulver_report_error(env);
+		exit_value = 1;
 	}
-	struct stat st;
-	if (fstat(fd, &st)) {
-		perror("stat()");
-		exit(1);
+	uint64_t leaked_mem = ulver_destroy(env);
+	if (leaked_mem > 0) {
+		exit_value = 1;
+		printf("[BUG] ulver did not release all of its allocated memory: wasted %lld bytes\n", leaked_mem);
 	}
-
-	char *buf = malloc(st.st_size);
-	if (!buf) {
-		perror("malloc()");
-		exit(1);
-	}
-
-	ssize_t rlen = read(fd, buf, st.st_size);
-	if (rlen != st.st_size) {
-		perror("read()");
-		exit(1);
-	}
-
-	ulver_form *uf = ulver_parse(env, buf, rlen);
-	while(uf) {
-		ulver_object *ret = ulver_eval(env, uf);
-		if (ret == NULL) {
-			if (env->error) {
-				printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
-			}
-			exit(1);
-		}
-		uf = uf->next;
-	}
-	ulver_destroy(env);
+	exit(exit_value);
 }
