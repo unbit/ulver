@@ -127,6 +127,54 @@ ulver_object *ulver_load(ulver_env *env, char *filename);
 
 parse and evaluate the specified filename, returning a ulver_object structure
 
+You can define new objects and functions from your app once the ulver_env structure is ready.
+
+The following object types are defined:
+
+```c
+#define ULVER_LIST 0
+#define ULVER_SYMBOL 1
+#define ULVER_NUM 2
+#define ULVER_STRING 3
+#define ULVER_FLOAT 4
+#define ULVER_FUNC 5
+#define ULVER_KEYWORD 6
+#define ULVER_PACKAGE 7
+#define ULVER_FORM 8
+#define ULVER_TRUE 255
+```
+
+So to create a num (note: all integers in ulver are signed 64bit):
+
+```c
+ulver_object *my_number = ulver_object_new(env, ULVER_NUM);
+```
+
+now the object is created, but you need to assign a value to it:
+
+```c
+ulver_object *my_number = ulver_object_new(env, ULVER_NUM);
+my_number->n = 17;
+```
+
+for a float you will use
+
+```c
+ulver_object *my_number = ulver_object_new(env, ULVER_FLOAT);
+my_number->d = 17.0;
+```
+
+Creating objects in this way is not the handiest way, the api exposes a bunch of commodity functions:
+
+```c
+ulver_object *ulver_object_from_num(ulver_env *, int64_t);
+ulver_object *ulver_object_from_float(ulver_env *, double);
+ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
+ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
+```
+
+(as you can see even strings and keywords lengths are 64bit)
+
 Status
 ======
 
