@@ -131,4 +131,6 @@ void tests() {
 	test_true("(find t (list 1 2 \"3\" :foo :bar t 0 0))");
 
 	test_num("(position :b (eval (quote (list :a :b (list :c :d :e) (list :c :d :e (list :a :b :c))))))", 1);
+
+	test_num("(eval (read-from-string \"(+ 3 4 10)\"))", 17);
 }

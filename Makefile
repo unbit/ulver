@@ -6,7 +6,7 @@ ifeq ($(OS), Windows_NT)
 else
 	LIBS=-lreadline
 	CFLAGS=-fPIC
-	TEST=ulver_test
+	TEST=ulver_tests
 endif
 
 all: libulver.a libulver.so
