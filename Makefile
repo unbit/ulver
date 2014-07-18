@@ -1,15 +1,17 @@
 OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/libulver.o
 ifeq ($(OS), Windows_NT)
 	LIBS=
+	CFLAGS=
 else
 	LIBS=-lreadline
+	CFLAGS=-fPIC
 endif
 
 all: libulver.a libulver.so
 	$(CC) -I. -g -o ulver main.c libulver.a $(LIBS)
 
 src/%.o: src/%.c
-	$(CC) -I. -fPIC -g -o $@ -c $<
+	$(CC) -I. $(CFLAGS) -g -o $@ -c $<
 
 libulver.a: $(OBJECTS) 
 	$(AR) rcs libulver.a $(OBJECTS)
