@@ -11,9 +11,17 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 else if (item->type == ULVER_STRING) {
                 	printf("\"%.*s\"", (int) item->len, item->str);
                 }
-                else if (item->type == ULVER_KEYWORD || item->type == ULVER_FUNC) {
+                else if (item->type == ULVER_KEYWORD) {
                 	printf("%.*s", (int) item->len, item->str);
                 }
+		else if(item->type == ULVER_FUNC) {
+			if (item->str) {
+				printf("%.*s", (int) item->len, item->str);
+			}
+			else {
+				printf("#<FUNCTION :LAMBDA>");
+			}
+		}
                 else if (item->type == ULVER_NUM) {
                 	printf("%lld", item->n);
                 }

@@ -125,4 +125,6 @@ void tests() {
 
 	test_num("(eval (second (quote (1 (+ 2 1)))))", 3);
 	test_num("(+ 1 (eval (quote 1) ))", 2);
+
+	test_num("(setq callme (lambda (a) (* a 2)))(funcall callme 1)", 2);
 }

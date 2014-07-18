@@ -1,5 +1,25 @@
 #include <ulver.h>
 
+static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
+	env->caller = u_func;
+        ulver_stack_push(env);
+        env->calls++;
+        ulver_object *ret = u_func->func(env, uf);
+        ulver_stack_pop(env);
+        // this ensure the returned value is not garbage collected
+        env->stack->ret = ret;
+        return ret;
+}
+
+ulver_object *ulver_fun_funcall(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "funcall requires an argument");
+        ulver_object *u_func = ulver_eval(env, argv);
+        if (!u_func) return NULL;
+        if (u_func->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
+
+        return call_do(env, u_func, argv->next);
+}
+
 ulver_object *ulver_fun_eval(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "eval requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
@@ -393,6 +413,9 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 	ulver_form *progn = env->caller->progn;
 
 	while(uf) {
+		if (!argv) {
+			return ulver_error(env, "missing argument %.*s for lambda_list", (int) uf->len, uf->value);
+		}
 		ulver_symbol_set(env, uf->value, uf->len, ulver_eval(env, argv));
 		argv = argv->next;
 		uf = uf->next;
@@ -409,6 +432,15 @@ ulver_object *ulver_fun_defun(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "defun requires two arguments");	
 	ulver_symbol *us = ulver_register_fun2(env, argv->value, argv->len, ulver_fun_call_with_lambda_list, argv->next->list, argv->next->next);
 	return us->value;
+}
+
+ulver_object *ulver_fun_lambda(ulver_env *env, ulver_form *argv) {
+        if (!argv || !argv->next) return ulver_error(env, "lambda requires two arguments");
+	ulver_object *uo = ulver_object_new(env, ULVER_FUNC);
+        uo->func = ulver_fun_call_with_lambda_list;
+        uo->lambda_list = argv->list;
+        uo->progn = argv->next;
+        return uo;
 }
 
 ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
@@ -547,8 +579,16 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_STRING) {
 		printf("\n\"%.*s\" ", (int) uo->len, uo->str);
 	}
-	else if (uo->type == ULVER_KEYWORD || uo->type == ULVER_FUNC) {
+	else if (uo->type == ULVER_KEYWORD) {
 		printf("\n%.*s ", (int) uo->len, uo->str);
+	}
+	else if (uo->type == ULVER_FUNC) {
+		if (uo->str) {
+			printf("\n%.*s ", (int) uo->len, uo->str);
+		}
+		else {
+			printf("\n#<FUNCTION :LAMBDA> ");
+		}
 	}
 	else if (uo->type == ULVER_NUM) {
 		printf("\n%lld ", uo->n);
@@ -746,21 +786,12 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 }
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
-	ulver_form *t_func = uf;
-	if (!t_func) return env->nil;
-	ulver_object *u_func = ulver_object_from_symbol(env, t_func);
+	if (!uf) return env->nil;
+	ulver_object *u_func = ulver_object_from_symbol(env, uf);
 	if (!u_func) return ulver_error_form(env, uf, "function not found");
 	if (u_func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
 
-	env->caller = u_func;
-	
-	ulver_stack_push(env);	
-	env->calls++;
-	ulver_object *ret = u_func->func(env, t_func->next);
-	ulver_stack_pop(env);
-	// this ensure the returned value is not garbage collected
-	env->stack->ret = ret;
-	return ret;
+	return call_do(env, u_func, uf->next);
 }
 
 ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
@@ -1054,6 +1085,9 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "quote", ulver_fun_quote);
         ulver_register_fun(env, "eval", ulver_fun_eval);
+
+        ulver_register_fun(env, "lambda", ulver_fun_lambda);
+        ulver_register_fun(env, "funcall", ulver_fun_funcall);
 
         return env;
 }
