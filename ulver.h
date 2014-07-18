@@ -136,7 +136,7 @@ ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
-ulver_symbol *ulver_symbol_get(ulver_env *env, char *, uint64_t);
+ulver_symbol *ulver_symbol_get(ulver_env *, char *, uint64_t);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);
 ulver_object *ulver_eval_list(ulver_env *, ulver_form *);
 ulver_object *ulver_object_copy(ulver_env *, ulver_object *);
@@ -146,6 +146,7 @@ void ulver_symbolmap_destroy(ulver_env *, ulver_symbolmap *);
 ulver_object *ulver_fun_print(ulver_env *, ulver_form *);
 
 ulver_symbol *ulver_register_fun2(ulver_env *, char *, uint64_t, ulver_object *(*)(ulver_env *, ulver_form *), ulver_form *, ulver_form *);
+ulver_symbol *ulver_register_fun(ulver_env *, char *, ulver_object *(*)(ulver_env *, ulver_form *));
 
 void *ulver_alloc(ulver_env *, uint64_t);
 void ulver_free(ulver_env *, void *, uint64_t);
