@@ -127,4 +127,8 @@ void tests() {
 	test_num("(+ 1 (eval (quote 1) ))", 2);
 
 	test_num("(setq callme (lambda (a) (* a 2)))(funcall callme 1)", 2);
+
+	test_true("(find t (list 1 2 \"3\" :foo :bar t 0 0))");
+
+	test_num("(position :b (eval (quote (list :a :b (list :c :d :e) (list :c :d :e (list :a :b :c))))))", 1);
 }

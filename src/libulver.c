@@ -1,5 +1,40 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_find(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "find requires two arguments");	
+	ulver_object *item = ulver_eval(env, argv);
+	if (!item) return NULL;
+	ulver_object *sequence = ulver_eval(env, argv->next);
+	if (!sequence) return NULL;
+	if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
+
+	ulver_object *found = sequence->list;
+	while(found) {
+		if (ulver_utils_eq(found, item)) return found;
+		found = found->next;
+	}	
+
+	return env->nil;
+}
+
+ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
+        if (!argv || !argv->next) return ulver_error(env, "position requires two arguments");
+        ulver_object *item = ulver_eval(env, argv);
+        if (!item) return NULL;
+        ulver_object *sequence = ulver_eval(env, argv->next);
+        if (!sequence) return NULL;
+        if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
+
+	uint64_t count = 0;
+        ulver_object *found = sequence->list;
+        while(found) {
+                if (ulver_utils_eq(found, item)) return ulver_object_from_num(env, count);
+		count++;
+                found = found->next;
+        }
+        return env->nil;
+}
+
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	env->caller = u_func;
         ulver_stack_push(env);
@@ -24,8 +59,10 @@ ulver_object *ulver_fun_eval(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "eval requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
-	if (uo->type != ULVER_FORM) return ulver_error(env, "eval requires a form as argument");
-        return ulver_eval(env, uo->form);
+	if (uo->type == ULVER_FORM || uo->type == ULVER_LIST) {
+        	return ulver_eval(env, uo->form);
+	}
+	return ulver_error(env, "eval requires a form as argument");
 }
 
 ulver_object *ulver_fun_quote(ulver_env *env, ulver_form *argv) {
@@ -34,6 +71,7 @@ ulver_object *ulver_fun_quote(ulver_env *env, ulver_form *argv) {
 	ulver_object *uo = NULL;
 	if (argv->type == ULVER_LIST) {
 		uo = ulver_object_new(env, ULVER_LIST);
+		uo->form = argv;
 		ulver_form *item = argv->list;
 		while(item) {
 			ulver_object *form_object = ulver_object_new(env, ULVER_FORM);
@@ -487,7 +525,9 @@ ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "list requires an argument");
 	ulver_object *list = ulver_object_new(env, ULVER_LIST);
 	while(argv) {
-		ulver_object_push(env, list, ulver_eval(env, argv));
+		ulver_object *uo = ulver_eval(env, argv);
+		if (!uo) return NULL;
+		ulver_object_push(env, list, uo);
 		argv = argv->next;
 	}
 	return list;
@@ -571,7 +611,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "print requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);	
 	if (!uo) return NULL;
-	if (uo->type == 0) {
+	if (uo->type == ULVER_LIST) {
                 printf("\n(");
 		ulver_utils_print_list(env, uo);
                 printf(") ");
@@ -603,7 +643,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_FORM) {
+		printf("\n");
 		ulver_utils_print_form(uo->form);
+		printf(" ");
 	}
 	else {
 		printf("\n?%.*s? ", (int) uo->len, uo->str);
@@ -1037,9 +1079,11 @@ ulver_env *ulver_init() {
 
         env->t = ulver_object_new(env, ULVER_TRUE);
         env->t->gc_protected = 1;
+	ulver_symbol_set(env, "t", 1, env->t);
 
         env->nil = ulver_object_new(env, 0);
         env->nil->gc_protected = 1;
+	ulver_symbol_set(env, "nil", 3, env->nil);
 
 	// register functions
 
@@ -1088,6 +1132,9 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "lambda", ulver_fun_lambda);
         ulver_register_fun(env, "funcall", ulver_fun_funcall);
+
+        ulver_register_fun(env, "find", ulver_fun_find);
+        ulver_register_fun(env, "position", ulver_fun_position);
 
         return env;
 }

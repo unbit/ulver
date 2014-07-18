@@ -31,15 +31,20 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 else if (item->type == ULVER_TRUE) {
                 	printf("T");
                 }
+		else if (item->type == ULVER_FORM) {
+                	ulver_utils_print_form(item->form);
+        	}
 		else if (item->type == ULVER_PACKAGE) {
                         printf("#<PACKAGE %.*s>", (int) item->len, item->str);
                 }
 		else {
                 	printf("?%.*s?", (int) item->len, item->str);
 		}
+
                 if (item->next) {
                 	printf(" ");
                 }
+
         	item = item->next;
 	}
 }
@@ -155,19 +160,21 @@ ulver_object *ulver_utils_nth(ulver_object *list, uint64_t n) {
 }
 
 void ulver_utils_print_form(ulver_form *form) {
-	ulver_form *uf = form;
-	while(uf) {
-		ulver_form *list = uf->list;
-		if (list) printf("(");
-		ulver_utils_print_form(list);
-		if (list) printf(")");
-		if (uf->type == ULVER_STRING) {
-			printf("\"%.*s\"", (int)uf->len, uf->value);
+	if (form->type == ULVER_LIST) {
+        	ulver_form *list = form->list;
+                printf("(");
+		while(list) {
+                	ulver_utils_print_form(list);
+			list = list->next;
+			if (list) printf(" ");
 		}
-		else {
-			printf("%.*s", (int)uf->len, uf->value);
-		}
-		uf = uf->next;
-		if (uf) printf(" ");
+                printf(")");
+		return;
 	}
+
+        if (form->type == ULVER_STRING) {
+        	printf("\"%.*s\"", (int)form->len, form->value);
+		return;
+        }
+        printf("%.*s", (int)form->len, form->value);
 }
