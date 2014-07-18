@@ -190,7 +190,15 @@ both take in account the current stack frame, so if you call them before enterin
 ulver_symbol_set(env, "*foobar*", 8, ulver_object_from_num(env, 17));
 ```
 
-now the \*foobar\* symbol is available to your interpreter
+now the \*foobar\* symbol is globally available to your interpreter
+
+As well as new symbols, you can define new functions:
+
+```c
+ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *));
+```
+
+
 
 Status
 ======
