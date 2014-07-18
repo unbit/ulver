@@ -136,6 +136,7 @@ ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
+ulver_symbol *ulver_symbol_get(ulver_env *env, char *, uint64_t);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);
 ulver_object *ulver_eval_list(ulver_env *, ulver_form *);
 ulver_object *ulver_object_copy(ulver_env *, ulver_object *);
