@@ -175,6 +175,23 @@ ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
 
 (as you can see even strings and keywords lengths are 64bit)
 
+One objects are created you can bind them to symbols (or variables for more conventional naming):
+
+```c
+ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t name_len, ulver_object *object);
+ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t name_len);
+```
+
+both returns a ulver_symbol structure (or NULL on error/notfound). The ->value field of this structure is the pointer to the ulver_object structure
+
+both take in account the current stack frame, so if you call them before entering a function (read: son after env_init() call) you will automatically create global variables. Otherwise use the \*name\* syntax:
+
+```c
+ulver_symbol_set(env, "*foobar*", 8, ulver_object_from_num(env, 17));
+```
+
+now the \*foobar\* symbol is available to your interpreter
+
 Status
 ======
 
