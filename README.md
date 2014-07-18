@@ -175,6 +175,7 @@ The project is in alpha stage (it is still mainly a proof of concept), the follo
 * funcall
 * find
 * position
+* read-from-string
 
 
 The garbage collection system is already working (mark and sweep), and you can manually call it from lisp using the (gc) function (it returns the amount of memory used by the interpreter, in bytes).
