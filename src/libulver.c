@@ -293,9 +293,9 @@ ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
 	if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string"); 
-	char *filename = strndup(uo->str, uo->len);
+	char *filename = ulver_utils_strndup(env, uo->str, uo->len);
 	ulver_object *ret = ulver_load(env, filename);
-	free(filename);
+	env->free(env, filename, uo->len+1);
 	return ret;
 }
 
