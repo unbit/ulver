@@ -1,5 +1,34 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_eval(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "eval requires an argument");
+	ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
+	if (uo->type != ULVER_FORM) return ulver_error(env, "eval requires a form as argument");
+        return ulver_eval(env, uo->form);
+}
+
+ulver_object *ulver_fun_quote(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "quote requires an argument");
+	// generate the form object (could be a list)
+	ulver_object *uo = NULL;
+	if (argv->type == ULVER_LIST) {
+		uo = ulver_object_new(env, ULVER_LIST);
+		ulver_form *item = argv->list;
+		while(item) {
+			ulver_object *form_object = ulver_object_new(env, ULVER_FORM);
+			form_object->form = item;
+			ulver_object_push(env, uo, form_object);
+			item = item->next;
+		}
+	}
+	else {
+		uo = ulver_object_new(env, ULVER_FORM);
+		uo->form = argv;
+	}
+	return uo;
+}
+
 ulver_object *ulver_fun_first(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "first requires an argument");	
 	ulver_object *list = ulver_eval(env, argv);
@@ -533,6 +562,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_PACKAGE) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
+	else if (uo->type == ULVER_FORM) {
+		ulver_utils_print_form(uo->form);
+	}
 	else {
 		printf("\n?%.*s? ", (int) uo->len, uo->str);
 	}
@@ -1019,6 +1051,9 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "eighth", ulver_fun_eighth);
         ulver_register_fun(env, "ninth", ulver_fun_ninth);
         ulver_register_fun(env, "tenth", ulver_fun_tenth);
+
+        ulver_register_fun(env, "quote", ulver_fun_quote);
+        ulver_register_fun(env, "eval", ulver_fun_eval);
 
         return env;
 }

@@ -18,6 +18,7 @@
 #define ULVER_FUNC 5
 #define ULVER_KEYWORD 6
 #define ULVER_PACKAGE 7
+#define ULVER_FORM 8
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -64,6 +65,7 @@ struct ulver_env {
 	ulver_form *form_list_current;
 	ulver_form *form_new;
 	uint8_t is_quoted;
+	uint8_t is_doublequoted;
 	ulver_source *sources;
 	ulver_symbolmap *packages;
 	ulver_object *current_package;
@@ -87,6 +89,7 @@ struct ulver_object {
 	uint8_t gc_mark;
 	uint8_t gc_protected;
 	ulver_symbolmap *map;
+	ulver_form *form;
 };
 
 struct ulver_form {
@@ -178,3 +181,4 @@ int ulver_utils_eq(ulver_object *, ulver_object *);
 ulver_object *ulver_run(ulver_env *, char *);
 
 ulver_object *ulver_utils_nth(ulver_object *, uint64_t);
+void ulver_utils_print_form(ulver_form *);

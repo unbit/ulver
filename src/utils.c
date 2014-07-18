@@ -145,3 +145,21 @@ ulver_object *ulver_utils_nth(ulver_object *list, uint64_t n) {
 	}
 	return NULL;
 }
+
+void ulver_utils_print_form(ulver_form *form) {
+	ulver_form *uf = form;
+	while(uf) {
+		ulver_form *list = uf->list;
+		if (list) printf("(");
+		ulver_utils_print_form(list);
+		if (list) printf(")");
+		if (uf->type == ULVER_STRING) {
+			printf("\"%.*s\"", (int)uf->len, uf->value);
+		}
+		else {
+			printf("%.*s", (int)uf->len, uf->value);
+		}
+		uf = uf->next;
+		if (uf) printf(" ");
+	}
+}

@@ -122,4 +122,7 @@ void tests() {
 	test_true("(setq highnumber 300)(if (> highnumber 299) (eq :a :a))");
 
 	test_num("(setq themap (list :foo 17 :bar 30 :fake))(getf themap :bar)", 30);
+
+	test_num("(eval (second (quote (1 (+ 2 1)))))", 3);
+	test_num("(+ 1 (eval (quote 1) ))", 2);
 }

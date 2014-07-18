@@ -47,7 +47,7 @@ ulver_form *ulver_form_commit(ulver_env *env) {
 	if (env->token) {
 		uint8_t type = ULVER_SYMBOL;
 
-		if (env->is_quoted) {
+		if (env->is_doublequoted) {
 			type = ULVER_STRING;	
 		}
 		else if (env->token_len > 0 && env->token[0] == ':') {
@@ -99,7 +99,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	int is_comment = 0;
 
 	// initialize env data for the parser
-	env->is_quoted = 0;
+	env->is_doublequoted = 0;
 	env->token = NULL;
 	env->token_len = 0;
 	env->lines++;
@@ -121,7 +121,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 			continue;
 		}
 
-		if (env->is_quoted) {
+		if (env->is_doublequoted) {
 			if (!env->token) {
 				env->token = buf + env->pos;
 				env->token_len = 0;
@@ -141,7 +141,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 			if (c == '"') {
 				ulver_form *uf = ulver_form_commit(env);
-				env->is_quoted = 0;
+				env->is_doublequoted = 0;
 				is_escaped = 0;
 				continue;
 			}
@@ -161,7 +161,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 				}
 				break;
 			case '"':
-				env->is_quoted = 1;
+				env->is_doublequoted = 1;
 				break;
 			case ' ':
 			case '\t':
