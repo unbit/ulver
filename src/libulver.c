@@ -1063,7 +1063,7 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 		HINSTANCE module = LoadLibrary(TEXT(filename));
 		if (!module) {
 			env->free(env, entry_point, strlen(entry_point)+1);
-			return ulver_error(env, "unable to load library %s", filename);
+			return ulver_error(env, "unable to load library %s: error code %d", filename, GetLastError());
 		}
 		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) GetProcAddress(module, entry_point);
 #else
