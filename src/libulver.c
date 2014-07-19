@@ -135,6 +135,18 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
         ulver_stack_pop(env);
         // this ensure the returned value is not garbage collected
         env->stack->ret = ret;
+
+	// do we need to call gc ?
+	if (env->calls % env->gc_freq == 0) {
+		ulver_gc(env);
+	}
+	else if (env->mem > env->max_memory) {
+		ulver_gc(env);
+		if (env->mem > env->max_memory) {
+			return ulver_error(env, "OUT OF MEMORY: max %llu, current %llu", env->max_memory, env->mem);
+		}
+	}
+
         return ret;
 }
 
@@ -1192,6 +1204,11 @@ ulver_env *ulver_init() {
         env->free = ulver_free;
 
         env->global_stack = ulver_stack_push(env);
+
+	// 30 megs memory limit before triggering gc
+	env->max_memory = 30 * 1024 * 1024;
+	// invoke gc every 1000 calls
+	env->gc_freq = 1000;
 
         // create the packages map
         env->packages = ulver_symbolmap_new(env);

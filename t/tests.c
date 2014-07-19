@@ -117,6 +117,8 @@ void test_nil(char *s) {
 int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
+	// tune gc frequency to 10
+	env->gc_freq = 10;
 
 	tests();
 
@@ -124,6 +126,8 @@ int main(int argc, char **argv) {
 	printf("SUCCESSFULL TESTS: %llu\n", tests_successfull);
 	printf("FAILED TESTS: %llu\n", tests_failed);
 
+	printf("CALLED FUNCS: %llu\n", env->calls);
+	printf("GC ROUNDS: %llu\n", env->gc_rounds);
 	uint64_t mem = ulver_destroy(env);
 	printf("LEAKED MEMORY: %llu\n", mem);
 

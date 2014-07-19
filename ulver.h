@@ -75,6 +75,9 @@ struct ulver_env {
 	ulver_symbolmap *packages;
 	ulver_object *current_package;
 	ulver_object *cl_user;
+	uint64_t max_memory;
+	uint64_t gc_freq;
+	uint64_t gc_rounds;
 };
 
 struct ulver_object {
