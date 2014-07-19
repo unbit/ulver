@@ -198,7 +198,77 @@ As well as new symbols, you can define new functions:
 ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *));
 ```
 
+a lisp function in ulver is a standard C function with the following prototype:
 
+```c
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+        ...
+}
+```
+
+lisp functions take a form as input and returns an ulver_object (or NULL on error)
+
+As an example, take this function:
+
+```lisp
+(funny "helloworld")
+```
+
+the string "helloworld" is our form. The objective of our function is generating a new string with uppercased characters.
+
+First step is checking an argument has been passed to funny
+
+```c
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+        if (!argv) return ulver_error("funny needs an argument");
+        ...
+}
+```
+
+the ulver_error function sets the interpreter global error state (something you should always check) and returns NULL;
+
+We have an argument (a form), and we now need to evaluate it (remember, lisp is lazy, arguments are evaluated only when needed, so your functions must choose when and how to manage arguments).
+
+```c
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+        if (!argv) return ulver_error("funny needs an argument");
+        ulver_object *string1 = ulver_eval(env, argv);
+        // we always need to check for eval return value
+        if (!string1) return NULL;
+        if (string1->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+        ...
+}
+```
+
+the previous code should be quite self-explanatory, the only new thing is the ulver_error_form() commodity function, that is like ulver_error() but adds the body of the form generating the error. (it is only for giving users a more handy error report, you are free to set the error message to whatever you want)
+
+Now we have our argument object, our purpose is generating a new with the same body of the argument, and then we uppercase each char:
+
+```c
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+        if (!argv) return ulver_error("funny needs an argument");
+        ulver_object *string1 = ulver_eval(env, argv);
+        // we always need to check for eval return value
+        if (!string1) return NULL;
+        if (string1->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+        // generate a new string object with the same content of string1
+        ulver_object *new_string = ulver_object_from_string(env, string1->str, string1->len);
+        // now iterate each char
+        uint64_t i;
+        for(i=0;i<new_string->len;i++) {
+                new_string->str[i] = toupper(new_string->str[i]);
+        }
+        return new_string;
+}
+```
+
+the function is now complete and you can register it in the functions symbol table:
+
+```c
+ulver_register_fun(env, "funny", funny_lisp_function);
+```
+
+now your lisp engine has the (funny) function available
 
 Status
 ======
