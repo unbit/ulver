@@ -317,7 +317,59 @@ once we eval_parse() the previous string we get a ulver_form structure like this
         
 ```
 
+Back to the "funny" function, the form we get it is something like that:
 
+```c
+        form => the_whole_form ['(funny "helloworld")']
+        form->list => the_function_name ['funny']
+        form->next => NULL;
+        
+        the_function_name->list => NULL
+        the_function_name->next => the_string_arg ['"helloworld"']
+        
+        the_string_arg->list => NULL
+        the_string_arg->next => NULL
+```
+
+The C function gets the first item after the function name (this simplify functions development). In the "funny" example the *form pointer maps directly to "the_string_arg" seen before
+
+Still confused ?
+
+Let's make a new example where "funny" takes three arguments
+
+```c
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+        if (!argv || !argv->next || !argv->next->next) return ulver_error("funny needs three arguments");
+        
+        ulver_object *string1 = ulver_eval(env, argv);
+        // we always need to check for eval return value
+        if (!string1) return NULL;
+        if (string1->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+        
+        ulver_object *string2 = ulver_eval(env, argv->next);
+        // we always need to check for eval return value
+        if (!string2) return NULL;
+        if (string2->type != ULVER_STRING) return ulver_error_form(env, argv->next, "is not a string");
+        
+        ulver_object *string3 = ulver_eval(env, argv->next->next);
+        // we always need to check for eval return value
+        if (!string3) return NULL;
+        if (string3->type != ULVER_STRING) return ulver_error_form(env, argv->next->next, "is not a string");
+        ...
+}
+```
+
+But more important, this approach to arguments passing allows you to implement functions taking an arbitrary number of arguments, pretty easily:
+
+```c
+// this function prints the "fun!" string on the stdout for every argument (yeah pretty useless)
+ulver_object *funny_printer_function(ulver_env *env, ulver_form *form) {
+        while(form) {
+                printf("fun!\n");
+                form = form->next;
+        }
+        return env->nil;
+}
 
 
 Status
