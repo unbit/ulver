@@ -440,9 +440,13 @@ and build it
 gcc -shared -fPIC -I. -o black.so black.c
 # clang (OSX)
 gcc -I. -undefined dynamic_lookup -shared -fPIC -o black.dylib black.c
-# windows
-
+# windows (mingw)
+gcc -shared -I. -o black.dll black.c -L. -lulver
 ```
+
+(change -I value if you are not running from the ulver sources directory, on windows you do not have lazy symbol resolving for libraries, so you have to link extensions with ulver.dll, change -L accordingly)
+
+The library entrypoint (black_init in our case) has to return 0 on success. Every other value will be treated as error.
 
 Status
 ======
