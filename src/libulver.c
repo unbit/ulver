@@ -92,6 +92,21 @@ ulver_object *ulver_fun_read_from_string(ulver_env *env, ulver_form *argv) {
 	return form;
 }
 
+ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
+	char buf[8192];
+        if (fgets(buf, 8192, stdin)) {
+                size_t len = strlen(buf);
+                if (buf[len-1] == '\n') len--;
+        	ulver_form *uf = ulver_parse(env, buf, len);
+		if (!uf) return ulver_error(env, "unable to parse \"%.*s\"", (int) len, buf);
+        	ulver_object *form = ulver_object_new(env, ULVER_FORM);
+        	form->form = uf;
+        	return form;
+        }
+        return ulver_error(env, "EOF");
+}
+
+
 ulver_object *ulver_fun_find(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "find requires two arguments");	
 	ulver_object *item = ulver_eval(env, argv);
@@ -1282,6 +1297,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "read-from-string", ulver_fun_read_from_string);
         ulver_register_fun(env, "subseq", ulver_fun_subseq);
         ulver_register_fun(env, "length", ulver_fun_length);
+
+        ulver_register_fun(env, "read", ulver_fun_read);
 
         return env;
 }
