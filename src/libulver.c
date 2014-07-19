@@ -643,7 +643,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		}
 	}
 	else if (uo->type == ULVER_NUM) {
-		printf("\n%lld ", uo->n);
+		printf("\n%lld ", (long long int) uo->n);
 	}
 	else if (uo->type == ULVER_FLOAT) {
 		printf("\n%f ", uo->d);

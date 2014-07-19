@@ -23,7 +23,7 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
 			}
 		}
                 else if (item->type == ULVER_NUM) {
-                	printf("%lld", item->n);
+                	printf("%lld", (long long int) item->n);
                 }
                 else if (item->type == ULVER_FLOAT) {
                 	printf("%f", item->d);

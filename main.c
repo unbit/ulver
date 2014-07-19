@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
 	uint64_t leaked_mem = ulver_destroy(env);
 	if (leaked_mem > 0) {
 		exit_value = 1;
-		printf("[BUG] ulver did not release all of its allocated memory: wasted %lld bytes\n", leaked_mem);
+		printf("[BUG] ulver did not release all of its allocated memory: wasted %llu bytes\n", (long long unsigned int) leaked_mem);
 	}
 	exit(exit_value);
 }
