@@ -297,13 +297,13 @@ once we eval_parse() the previous string we get a ulver_form structure like this
         the_function_name->next => the_number_1 ['1']
         
         the_number_1->list => NULL
-        the_number_1->next = the_number_2 ['2']
+        the_number_1->next => the_number_2 ['2']
         
         the_number_2->list => NULL
-        the_number_2->next = the_number_3 ['3']
+        the_number_2->next => the_number_3 ['3']
         
         the_number_3->list => NULL
-        the_number_3->next = a_new_list ['(list 4 5)']
+        the_number_3->next => a_new_list ['(list 4 5)']
         
         
         a_new_list->list => the_number_4 ['4']
