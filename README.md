@@ -22,7 +22,7 @@ make
 
 you will end with
 
-* libulver.so (a shared library you can use to embed the ulver engine in your apps)
+* libulver.so (ulver.dll on windows, a shared library you can use to embed the ulver engine in your apps or to build extensions)
 * libulver.a (static version of libulver.so)
 * ulver (readline based executable implementing REPL and file runner (note: on windows you do not have readline support but a simple/raw fgets() loop)
 
