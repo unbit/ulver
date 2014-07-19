@@ -1057,6 +1057,22 @@ ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_o
 }
 
 ulver_object *ulver_load(ulver_env *env, char *filename) {
+#ifdef __WIN32__
+	HINSTANCE module = LoadLibrary(TEXT(filename));
+	if (!module) {
+		return ulver_error(env, "unable to load %s", filename);
+	}
+
+	int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) GetProcAddress(module, "funny_init");
+	if (!module_init) {
+		return ulver_error(env, "%s is not a ulver library", filename);
+	}
+
+	module_init(env);
+	return env->t;
+#endif
+
+	
 	int fd = open(filename, O_RDONLY);
         if (fd < 0) {
 		return ulver_error(env, "unable to open() file %s: %s", filename, strerror(errno));
@@ -1064,16 +1080,19 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 
         struct stat st;
         if (fstat(fd, &st)) {
+		close(fd);
 		return ulver_error(env, "unable to stat() file %s: %s", filename, strerror(errno));
         }
 
 	// we use low-level emory allocation, as it will be freed soon
         char *buf = malloc(st.st_size);
         if (!buf) {
+		close(fd);
 		return ulver_error(env, "unable to malloc() for file %s: %s", filename, strerror(errno));
         }
 
         ssize_t rlen = read(fd, buf, st.st_size);
+	close(fd);
         if (rlen != st.st_size) {
 		free(buf);
 		return ulver_error(env, "unable to read() file %s: %s", filename, strerror(errno));

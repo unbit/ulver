@@ -9,6 +9,9 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <errno.h>
+#ifdef __WIN32__
+#include <windows.h>
+#endif
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
