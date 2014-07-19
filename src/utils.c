@@ -191,3 +191,36 @@ uint64_t ulver_utils_length(ulver_object *uo) {
 	}
 	return count;
 }
+
+int ulver_utils_endswith(char *str, uint64_t len, char *with) {
+	size_t with_len = strlen(with);
+	if (with_len > len) return -1;
+	char *base = (str + len) - with_len;
+	return strncmp(base, with, with_len);
+}
+
+uint64_t ulver_utils_library_ext(char *filename) {
+	if (!ulver_utils_endswith(filename, strlen(filename), ".so")) return 3;
+	if (!ulver_utils_endswith(filename, strlen(filename), ".dylib")) return 6;
+	if (!ulver_utils_endswith(filename, strlen(filename), ".dll")) return 4;
+	return 0;
+}
+
+char *ulver_utils_is_library(ulver_env *env, char *filename) {
+	uint64_t with_len = ulver_utils_library_ext(filename);
+	if (!with_len) return NULL;
+
+	char *name = filename;
+#ifdef __WIN32__
+	char *relative_name = strrchr(filename, '\\');
+#else
+	char *relative_name = strrchr(filename, '/');
+#endif
+	if (relative_name) name = relative_name+1;
+	uint64_t name_len = strlen(name) - with_len;
+
+	char *entry_point = env->alloc(env, name_len + 6);
+	memcpy(entry_point, name, name_len);
+	memcpy(entry_point + name_len, "_init\0", 6);
+	return entry_point;
+}

@@ -11,6 +11,8 @@
 #include <errno.h>
 #ifdef __WIN32__
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
 #define ULVER_LIST 0
@@ -189,3 +191,5 @@ ulver_object *ulver_run(ulver_env *, char *);
 
 ulver_object *ulver_utils_nth(ulver_object *, uint64_t);
 void ulver_utils_print_form(ulver_form *);
+
+char *ulver_utils_is_library(ulver_env *env, char *);

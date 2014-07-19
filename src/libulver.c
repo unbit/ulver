@@ -1057,21 +1057,34 @@ ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_o
 }
 
 ulver_object *ulver_load(ulver_env *env, char *filename) {
+	char *entry_point = ulver_utils_is_library(env, filename);
+	if (entry_point) {
 #ifdef __WIN32__
-	HINSTANCE module = LoadLibrary(TEXT(filename));
-	if (!module) {
-		return ulver_error(env, "unable to load %s", filename);
-	}
-
-	int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) GetProcAddress(module, "funny_init");
-	if (!module_init) {
-		return ulver_error(env, "%s is not a ulver library", filename);
-	}
-
-	module_init(env);
-	return env->t;
+		HINSTANCE module = LoadLibrary(TEXT(filename));
+		if (!module) {
+			env->free(env, entry_point, strlen(entry_point)+1);
+			return ulver_error(env, "unable to load library %s", filename);
+		}
+		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) GetProcAddress(module, entry_point);
+#else
+		void *module = dlopen(filename, RTLD_NOW | RTLD_GLOBAL);
+		if (!module) {
+			env->free(env, entry_point, strlen(entry_point)+1);
+			return ulver_error(env, "unable to load library %s: %s", filename, dlerror());
+		}
+		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) dlsym(module, entry_point);
 #endif
+		env->free(env, entry_point, strlen(entry_point)+1);
+		if (!module_init) {
+			return ulver_error(env, "%s is not a ulver library", filename);
+		}
 
+		if (module_init(env)) {
+			return ulver_error(env, "unable to initialize library");;
+		}
+		return env->t;
+	}
+	
 	
 	int fd = open(filename, O_RDONLY);
         if (fd < 0) {
