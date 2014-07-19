@@ -538,8 +538,15 @@ The project is in alpha stage (it is still mainly a proof of concept), the follo
 * read-from-string
 * subseq
 * length
+* read
+* function
 
+The parser still lacks proper macro support
 
-The garbage collection system is already working (mark and sweep), and you can manually call it from lisp using the (gc) function (it returns the amount of memory used by the interpreter, in bytes).
+The parser does not manage special symbols, like single quotes (they should be defined as macro), & and #'
 
-Packages (namespaces) are implemented, but defpackage supports only the :export argument
+Packages (namespaces) are implemented, but defpackage function supports only the :export argument
+
+Stream api is not implemented (should be added soon)
+
+CLOS (oop for common lisp) is still being discussed
