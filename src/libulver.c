@@ -1,5 +1,18 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_length(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "read-from-string requires an argument");	
+
+	ulver_object *sequence = ulver_eval(env, argv);
+        if (!sequence) return NULL;
+
+        if (sequence->type != ULVER_LIST && sequence->type != ULVER_STRING) {
+                return ulver_error_form(env, argv, "is not a sequence");
+        }
+
+	return ulver_object_from_num(env, ulver_utils_length(sequence));
+}
+
 ulver_object *ulver_fun_subseq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "subseq requires two arguments");
 
@@ -46,6 +59,7 @@ ulver_object *ulver_fun_subseq(ulver_env *env, ulver_form *argv) {
 	// is it a list ?
 	if (sequence->type == ULVER_LIST) {
 		uint64_t how_many_items = end_index - index->n;
+		if (how_many_items > 0) how_many_items--;
 		uint64_t start_item = index->n;
 		uint64_t current_item = 0;
 		uint64_t pushed_items = 0;
@@ -1218,6 +1232,7 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "read-from-string", ulver_fun_read_from_string);
         ulver_register_fun(env, "subseq", ulver_fun_subseq);
+        ulver_register_fun(env, "length", ulver_fun_length);
 
         return env;
 }
