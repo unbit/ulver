@@ -205,7 +205,7 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 a lisp function in ulver is a standard C function with the following prototype:
 
 ```c
-ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *argv) {
         ...
 }
 ```
@@ -223,7 +223,7 @@ the string "helloworld" is our form. The objective of our function is generating
 First step is checking an argument has been passed to funny
 
 ```c
-ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error("funny needs an argument");
         ...
 }
@@ -234,7 +234,7 @@ the ulver_error function sets the interpreter global error state (something you 
 We have an argument (a form), and we now need to evaluate it (remember, lisp is lazy, arguments are evaluated only when needed, so your functions must choose when and how to manage arguments).
 
 ```c
-ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error("funny needs an argument");
         ulver_object *string1 = ulver_eval(env, argv);
         // we always need to check for eval return value
@@ -249,7 +249,7 @@ the previous code should be quite self-explanatory, the only new thing is the ul
 Now we have our argument object, our purpose is generating a new one with the same body of the argument, and then we uppercase each char:
 
 ```c
-ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error("funny needs an argument");
         ulver_object *string1 = ulver_eval(env, argv);
         // we always need to check for eval return value
@@ -338,7 +338,7 @@ Still confused ?
 Let's make a new example where "funny" takes three arguments
 
 ```c
-ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
+ulver_object *funny_lisp_function(ulver_env *env, ulver_form *argv) {
         if (!argv || !argv->next || !argv->next->next) return ulver_error("funny needs three arguments");
         
         ulver_object *string1 = ulver_eval(env, argv);
@@ -363,19 +363,37 @@ But more important, this approach to arguments passing allows you to implement f
 
 ```c
 // this function prints the "fun!" string on the stdout for every evaluated argument (yeah pretty useless)
-ulver_object *funny_printer_function(ulver_env *env, ulver_form *form) {
-        while(form) {
-                ulver_object *new_one = ulver_eval(env, form);
+ulver_object *funny_printer_function(ulver_env *env, ulver_form *argv) {
+        while(argv) {
+                ulver_object *new_one = ulver_eval(env, argv);
                 // raise error on failed eval
                 if (!new_one) return NULL;
                 printf("fun!\n");
-                form = form->next;
+                argv = argv->next;
         }
         return env->nil;
 }
 ```
 
+In the same way, your function could take a list as argument:
 
+
+```c
+// this function prints the "fun!" string on the stdout for every element of the passed list (again pretty useless)
+ulver_object *funny_printer_function(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error("funny_printer requires an argument");
+        if (argv->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+        ulver_form *item = argv->list;
+        while(item) {
+                ulver_object *new_one = ulver_eval(env, item);
+                // raise error on failed eval
+                if (!new_one) return NULL;
+                printf("fun!\n");
+                item = item->next;
+        }
+        return env->nil;
+}
+```
 
 Status
 ======
