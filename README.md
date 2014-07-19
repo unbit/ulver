@@ -362,14 +362,19 @@ ulver_object *funny_lisp_function(ulver_env *env, ulver_form *form) {
 But more important, this approach to arguments passing allows you to implement functions taking an arbitrary number of arguments, pretty easily:
 
 ```c
-// this function prints the "fun!" string on the stdout for every argument (yeah pretty useless)
+// this function prints the "fun!" string on the stdout for every evaluated argument (yeah pretty useless)
 ulver_object *funny_printer_function(ulver_env *env, ulver_form *form) {
         while(form) {
+                ulver_object *new_one = ulver_eval(env, form);
+                // raise error on failed eval
+                if (!new_one) return NULL;
                 printf("fun!\n");
                 form = form->next;
         }
         return env->nil;
 }
+```
+
 
 
 Status
