@@ -440,6 +440,19 @@ ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
         return env->nil;
 }
 
+ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "function requires an argument");
+        if (argv->type != ULVER_SYMBOL) return ulver_error(env, "function requires a symbol as argument");
+	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->global_stack->fun_locals, argv->value, argv->len, 0);
+        if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
+	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
+	if (func_symbol->value->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
+	if (!func_symbol->value->form) return ulver_error_form(env, argv, "is a C function");
+	ulver_object *u_form = ulver_object_new(env, ULVER_FORM);
+	u_form->form = func_symbol->value->form;
+        return u_form;
+}
+
 ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
 	ulver_gc(env);
 	return ulver_object_from_num(env, env->mem);
@@ -567,7 +580,7 @@ ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) {
 	// lambda and progn must be read before the lisp engine changes env->caller
 	ulver_form *uf = env->caller->lambda_list;
-	ulver_form *progn = env->caller->progn;
+	ulver_form *progn = env->caller->form;
 
 	while(uf) {
 		if (!argv) {
@@ -596,7 +609,7 @@ ulver_object *ulver_fun_lambda(ulver_env *env, ulver_form *argv) {
 	ulver_object *uo = ulver_object_new(env, ULVER_FUNC);
         uo->func = ulver_fun_call_with_lambda_list;
         uo->lambda_list = argv->list;
-        uo->progn = argv->next;
+        uo->form = argv->next;
         return uo;
 }
 
@@ -790,7 +803,6 @@ ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
         new->d = uo->d;
 	new->func = uo->func;
 	new->lambda_list = uo->lambda_list;
-	new->progn = uo->progn;
 	new->form = uo->form;
 	if (uo->list) {
 		ulver_object *item = uo->list;
@@ -1063,7 +1075,7 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
 	ulver_object *uo = ulver_object_new(env, ULVER_FUNC);
         uo->func = func;
 	uo->lambda_list = lambda_list;
-	uo->progn = progn;
+	uo->form = progn;
 	uo->str = ulver_utils_strndup(env, name, len);
         uo->len = len;
         uo->size += (len + 1);
@@ -1299,6 +1311,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "length", ulver_fun_length);
 
         ulver_register_fun(env, "read", ulver_fun_read);
+        ulver_register_fun(env, "function", ulver_fun_function);
 
         return env;
 }

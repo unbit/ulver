@@ -88,7 +88,6 @@ struct ulver_object {
         double d;
         ulver_object *(*func)(ulver_env *, ulver_form *);
         ulver_form *lambda_list;
-        ulver_form *progn;
         ulver_object *list;
         ulver_object *next;
 	uint64_t size;
