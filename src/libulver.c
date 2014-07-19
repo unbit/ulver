@@ -1070,7 +1070,7 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 		void *module = dlopen(filename, RTLD_NOW | RTLD_GLOBAL);
 		if (!module) {
 			env->free(env, entry_point, strlen(entry_point)+1);
-			return ulver_error(env, "unable to load library %s: %s", filename, dlerror());
+			return ulver_error(env, "unable to load library %s", dlerror());
 		}
 		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) dlsym(module, entry_point);
 #endif

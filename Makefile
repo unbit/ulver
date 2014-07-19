@@ -7,7 +7,7 @@ ifeq ($(OS), Windows_NT)
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe
 else
-	LDFLAGS=-ldl
+	LDFLAGS=-rdynamic -ldl
 	LIBS=-lreadline
 	CFLAGS=-fPIC
 	LIBNAME=libulver.so
