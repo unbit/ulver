@@ -447,6 +447,15 @@ env->max_memory = 64 * 1024 * 1024;
 ...
 ```
 
+in the same way, you may want to call the gcc with a lower frequency:
+
+```c
+ulver_env *env = ulver_init();
+// call the GC every 2 functions
+env->gc_freq = 2;
+...
+```
+
 Extending with shared libraries
 ===============================
 
