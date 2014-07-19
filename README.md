@@ -20,7 +20,7 @@ you will end with
 
 * libulver.so (a shared library you can use to embed the ulver engine in your apps)
 * libulver.a (static version of libulver.so)
-* ulver (readline based executable implementing REPL and file runner)
+* ulver (readline based executable implementing REPL and file runner (note: on windows you do not have readline support but a simple/raw fgets() loop)
 
 Now run
 
