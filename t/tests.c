@@ -72,6 +72,24 @@ void test_true(char *s) {
         tests_successfull++;
 }
 
+void test_nil(char *s) {
+        printf("- running test_nil for \"%s\"\n", s);
+        ulver_object *ret = ulver_run(env, s);
+        if (!ret) {
+                ulver_report_error(env);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->type != ULVER_LIST || ret->list) {
+                printf("[FAILED] test for %s: object is not nil\n", s);
+                tests_failed++;
+                return;
+        }
+
+        tests_successfull++;
+}
+
 int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
@@ -133,4 +151,7 @@ void tests() {
 	test_num("(position :b (eval (quote (list :a :b (list :c :d :e) (list :c :d :e (list :a :b :c))))))", 1);
 
 	test_num("(eval (read-from-string \"(+ 3 4 10)\"))", 17);
+
+	test_true("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 2)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");
+	test_nil("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 5)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");
 }

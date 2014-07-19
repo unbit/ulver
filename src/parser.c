@@ -157,7 +157,8 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 				ulver_form_commit(env);
 				env->form_list_current = env->form_list_current->parent;
 				if (env->form_list_current == NULL) {
-					printf("end of program ???\n");
+					printf("[ERROR] unexpected end of program ???\n");
+					return NULL;
 				}
 				break;
 			case '"':
