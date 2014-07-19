@@ -221,7 +221,7 @@ ulver_stackframe *ulver_stack_push(ulver_env *env) {
 	env->stack = ustack;
 	ustack->prev = previous_stackframe;
 	ustack->locals = ulver_symbolmap_new(env);
-	//ustack->fun_locals = ulver_symbolmap_new(env);
+	ustack->fun_locals = ulver_symbolmap_new(env);
 	return ustack;
 }
 
@@ -248,6 +248,7 @@ void ulver_stack_pop(ulver_env *env) {
 	env->stack = ustack->prev;
 
 	ulver_symbolmap_destroy(env, ustack->locals);
+	ulver_symbolmap_destroy(env, ustack->fun_locals);
 
 	env->free(env, ustack, sizeof(ulver_stackframe));
 }

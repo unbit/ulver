@@ -684,6 +684,7 @@ ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
 	new->func = uo->func;
 	new->lambda_list = uo->lambda_list;
 	new->progn = uo->progn;
+	new->form = uo->form;
 	if (uo->list) {
 		ulver_object *item = uo->list;
 		while(item) {
@@ -841,11 +842,12 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	if (!uf) return env->nil;
-	ulver_object *u_func = ulver_object_from_symbol(env, uf);
-	if (!u_func) return ulver_error_form(env, uf, "function not found");
-	if (u_func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
+	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->global_stack->fun_locals, uf->value, uf->len, 0);
+	if (!func_symbol) return ulver_error_form(env, uf, "undefined function");
+	ulver_object *func = func_symbol->value;
+	if (!func || func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
 
-	return call_do(env, u_func, uf->next);
+	return call_do(env, func, uf->next);
 }
 
 ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
@@ -959,7 +961,7 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
         uo->len = len;
         uo->size += (len + 1);
         ulver_utils_toupper(uo->str, uo->len);
-        return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo, 0);
+        return ulver_symbolmap_set(env, env->global_stack->fun_locals, name, len, uo, 0);
 }
 
 ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *)) {
