@@ -31,7 +31,7 @@ void test_float(char *s, double d) {
 }
 
 void test_num(char *s, int64_t n) {
-        printf("- running test_num for \"%s\", expect %lld\n", s, n);
+        printf("- running test_num for \"%s\", expect %lld\n", s, (long long int) n);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -46,7 +46,7 @@ void test_num(char *s, int64_t n) {
         }
 
         if (ret->n != n) {
-                printf("[FAILED] test for %s: %lld is not %lld\n", s, ret->n, n);
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n);
                 tests_failed++;
                 return;
         }
@@ -123,13 +123,13 @@ int main(int argc, char **argv) {
 	tests();
 
 	printf("\n*** END OF TESTS ***\n");
-	printf("SUCCESSFULL TESTS: %llu\n", tests_successfull);
-	printf("FAILED TESTS: %llu\n", tests_failed);
+	printf("SUCCESSFULL TESTS: %llu\n", (unsigned long long) tests_successfull);
+	printf("FAILED TESTS: %llu\n", (unsigned long long) tests_failed);
 
-	printf("CALLED FUNCS: %llu\n", env->calls);
-	printf("GC ROUNDS: %llu\n", env->gc_rounds);
+	printf("CALLED FUNCS: %llu\n", (unsigned long long) env->calls);
+	printf("GC ROUNDS: %llu\n", (unsigned long long) env->gc_rounds);
 	uint64_t mem = ulver_destroy(env);
-	printf("LEAKED MEMORY: %llu\n", mem);
+	printf("LEAKED MEMORY: %llu\n", (unsigned long long) mem);
 
 	exit(tests_failed);
 }

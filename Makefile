@@ -28,7 +28,7 @@ $(LIBNAME):
 	$(CC) -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS)
 
 test: libulver.a
-	@$(CC) -I. -g -o $(TEST) t/tests.c libulver.a
+	@$(CC) -I. -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS)
 	@./ulver_tests
 	@rm $(TEST)
 
