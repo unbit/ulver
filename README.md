@@ -281,7 +281,7 @@ Both structures have the ->next and ->list fields. The ->next field is a pointer
 Confused ? Let's make an example:
 
 ```c
- a form
+//a form
 "(list 1 2 3 (list 4 5))"
 ```
 
