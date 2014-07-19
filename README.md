@@ -395,7 +395,7 @@ ulver_object *funny_printer_function(ulver_env *env, ulver_form *argv) {
 }
 ```
 
-As you can see, you get the first element of the list (warning, it could be NULL in an empty list), and then you gets its siblings via the ->next attribute.
+As you can see, you get the first element of the list via ->list (warning, it could be NULL in an empty list), and then you gets its siblings via the ->next attribute.
 
 With this concept you are already able to implement the hystoric 'car' function:
 
@@ -411,6 +411,8 @@ ulver_object *the_car_function(ulver_env *env, ulver_form *argv) {
         // otherwise return the first item
         return arg1->list;
 }
+
+ulver_register_fun(env, "car", the_car_function)
 ```
 
 
