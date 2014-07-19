@@ -447,10 +447,7 @@ ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
         if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
 	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
 	if (func_symbol->value->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
-	if (!func_symbol->value->form) return ulver_error_form(env, argv, "is a C function");
-	ulver_object *u_form = ulver_object_new(env, ULVER_FORM);
-	u_form->form = func_symbol->value->form;
-        return u_form;
+        return func_symbol->value;
 }
 
 ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
@@ -756,11 +753,23 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	}
 	else if (uo->type == ULVER_FUNC) {
 		if (uo->str) {
-			printf("\n%.*s ", (int) uo->len, uo->str);
-		}
-		else {
-			printf("\n#<FUNCTION :LAMBDA> ");
-		}
+                	printf("\n#<FUNCTION %.*s ", (int) uo->len, uo->str);
+                }
+                else {
+                	printf("\n#<FUNCTION :LAMBDA ");
+                }
+		if (uo->lambda_list) {
+			printf("(");
+                        ulver_utils_print_form(uo->lambda_list);
+                	printf(") ");
+                }
+                if (uo->form) {
+                	ulver_utils_print_form(uo->form);
+                }
+                else {
+                	printf("<C FUNC>");
+                }
+                printf("> ");
 	}
 	else if (uo->type == ULVER_NUM) {
 		printf("\n%lld ", (long long int) uo->n);

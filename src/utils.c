@@ -16,11 +16,23 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 }
 		else if(item->type == ULVER_FUNC) {
 			if (item->str) {
-				printf("%.*s", (int) item->len, item->str);
+				printf("#<FUNCTION %.*s ", (int) item->len, item->str);
 			}
 			else {
-				printf("#<FUNCTION :LAMBDA>");
+				printf("#<FUNCTION :LAMBDA ");
 			}
+			if (item->lambda_list) {
+				printf("(");
+				ulver_utils_print_form(item->lambda_list);
+				printf(") ");
+			}
+			if (item->form) {
+				ulver_utils_print_form(item->form);
+			}
+			else {
+				printf("<C FUNC>");
+			}
+			printf(">");
 		}
                 else if (item->type == ULVER_NUM) {
                 	printf("%lld", (long long int) item->n);
