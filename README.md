@@ -417,6 +417,27 @@ ulver_register_fun(env, "car", the_car_function)
 
 A note about env->nil, it is part of a series of global objects created on interpreter initialization. It is mapped to the "nil" object, as well as env->t is mapped to the "T" (true) object.
 
+Memory management
+=================
+
+When you have finished with an intepreter you can destroy it with 
+
+```c
+uint64_t ulver_destroy(ulver_env *);
+```
+
+the function returns the amount of leaked memory (in bytes, MUST BE 0 !!!).
+
+This function internally calls (in addition to other steps)
+
+```c
+void ulver_gc(ulver_env *);
+```
+
+that invokes the mark & sweep garbage collector.
+
+The gc is automatically called when env->max_memory value (default to 30MB) is reached or env->gc_freq (default to 1000) functions have been called. In addition to this you can manually invoke it from your code with the (gc) function.
+
 Extending with shared libraries
 ===============================
 
