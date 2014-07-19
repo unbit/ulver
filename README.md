@@ -415,6 +415,7 @@ ulver_object *the_car_function(ulver_env *env, ulver_form *argv) {
 ulver_register_fun(env, "car", the_car_function)
 ```
 
+A note about env->nil, it is part of a series of global objects created on interpreter initialization. It is mapped to the "nil" object, as well as env->t is mapped to the "T" (true) object.
 
 Status
 ======
