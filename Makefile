@@ -2,15 +2,19 @@ OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/libulver.o
 ifeq ($(OS), Windows_NT)
 	LIBS=
 	CFLAGS=
+	LIBNAME=ulver.dll
+	BINNAME=ulver.exe
 	TEST=ulver_tests.exe
 else
 	LIBS=-lreadline
 	CFLAGS=-fPIC
+	LIBNAME=libulver.so
+	BINNAME=ulver
 	TEST=ulver_tests
 endif
 
-all: libulver.a libulver.so
-	$(CC) -I. -g -o ulver main.c libulver.a $(LIBS)
+all: libulver.a $(LIBNAME)
+	$(CC) -I. -g -o $(BINNAME) main.c libulver.a $(LIBS)
 
 src/%.o: src/%.c
 	$(CC) -I. $(CFLAGS) -g -o $@ -c $<
@@ -18,15 +22,15 @@ src/%.o: src/%.c
 libulver.a: $(OBJECTS) 
 	$(AR) rcs libulver.a $(OBJECTS)
 
-libulver.so:
-	$(CC) -shared -o libulver.so $(OBJECTS)
+$(LIBNAME):
+	$(CC) -shared -o $(LIBNAME) $(OBJECTS)
 
 test: libulver.a
-	@$(CC) -I. -g -o ulver_tests t/tests.c libulver.a
+	@$(CC) -I. -g -o $(TEST) t/tests.c libulver.a
 	@./ulver_tests
 	@rm $(TEST)
 
 
 clean:
-	rm -f src/*.o libulver.a libulver.so ulver
+	rm -f src/*.o libulver.a $(LIBNAME) $(BINNAME)
 
