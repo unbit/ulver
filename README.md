@@ -438,6 +438,15 @@ that invokes the mark & sweep garbage collector.
 
 The gc is automatically called when env->max_memory value (default to 30MB) is reached or env->gc_freq (default to 1000) functions have been called. In addition to this you can manually invoke it from your code with the (gc) function.
 
+When the gc is invoked beacause the memory limit is reached, and after its work the memory is still higher, the interpreter will trigger an error. So if you need more than 30 megabytes of memory for your app, consider increasing it:
+
+```c
+ulver_env *env = ulver_init();
+// set memory limit to 64MB
+env->max_memory = 64 * 1024 * 1024;
+...
+```
+
 Extending with shared libraries
 ===============================
 
