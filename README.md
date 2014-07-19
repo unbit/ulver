@@ -331,7 +331,7 @@ Back to the "funny" function, the form we get it is something like that:
         the_string_arg->next => NULL
 ```
 
-The C function gets the first item after the function name (this simplify functions development). In the "funny" example the *form pointer maps directly to "the_string_arg" seen before
+The C function gets the first item after the function name (this simplify functions development). In the "funny" example the *argv pointer maps directly to "the_string_arg" seen before
 
 Still confused ?
 
