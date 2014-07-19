@@ -178,3 +178,16 @@ void ulver_utils_print_form(ulver_form *form) {
         }
         printf("%.*s", (int)form->len, form->value);
 }
+
+uint64_t ulver_utils_length(ulver_object *uo) {
+	uint64_t count = 0;
+	if (uo->type == ULVER_STRING) return uo->len;
+	if (uo->type == ULVER_LIST) {
+		ulver_object *item = uo->list;
+		while(item) {
+			count++;
+			item = item->next;
+		}
+	}
+	return count;
+}

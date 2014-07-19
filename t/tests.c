@@ -72,6 +72,30 @@ void test_true(char *s) {
         tests_successfull++;
 }
 
+void test_string(char *s, char *str) {
+        printf("- running test_string for \"%s\"\n", s);
+        ulver_object *ret = ulver_run(env, s);
+        if (!ret) {
+                ulver_report_error(env);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->type != ULVER_STRING) {
+                printf("[FAILED] test for %s: object is not a string\n", s);
+                tests_failed++;
+                return;
+        }
+
+	if (strcmp(ret->str, str)) {
+                printf("[FAILED] test for %s: \"%s\" is not \"%s\"\n", s, ret->str, str);
+                tests_failed++;
+                return;
+	}
+
+        tests_successfull++;
+}
+
 void test_nil(char *s) {
         printf("- running test_nil for \"%s\"\n", s);
         ulver_object *ret = ulver_run(env, s);
@@ -154,4 +178,14 @@ void tests() {
 
 	test_true("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 2)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");
 	test_nil("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 5)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");
+
+	test_string("\"hello\"", "hello");
+	test_string("(subseq \"hello\" 0)", "hello");
+	test_string("(subseq \"hello\" 1)", "ello");
+	test_string("(subseq \"hello\" 3)", "lo");
+	test_string("(subseq \"hello\" 0 0)", "");
+	test_string("(subseq \"hello\" 1 2)", "e");
+	test_string("(subseq \"hello\" 1 3)", "el");
+
+	test_num("(third (subseq (list 1 2 3 4 5 6 7) 1 5))", 4);
 }

@@ -122,6 +122,7 @@ void ulver_utils_print_list(ulver_env *, ulver_object *);
 void ulver_utils_tolower(char *, uint64_t);
 void ulver_utils_toupper(char *, uint64_t);
 int ulver_utils_memicmp(char *, char *, uint64_t);
+uint64_t ulver_utils_length(ulver_object *);
 
 ulver_symbol *ulver_symbolmap_get(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 ulver_symbol *ulver_symbolmap_set(ulver_env *, ulver_symbolmap *, char *, uint64_t, ulver_object *, uint8_t);
