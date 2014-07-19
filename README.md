@@ -382,18 +382,37 @@ In the same way, your function could take a list as argument:
 // this function prints the "fun!" string on the stdout for every element of the passed list (again pretty useless)
 ulver_object *funny_printer_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error("funny_printer requires an argument");
-        if (argv->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
-        ulver_form *item = argv->list;
+        // we evaluate the first argument (remember: evaluation traverse the whole form)
+        ulver_object *arg1 = ulver_eval(env, argv);
+        if (!arg1) return NULL;
+        if (arg1->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+        ulver_object *item = arg1->list;
         while(item) {
-                ulver_object *new_one = ulver_eval(env, item);
-                // raise error on failed eval
-                if (!new_one) return NULL;
                 printf("fun!\n");
                 item = item->next;
         }
         return env->nil;
 }
 ```
+
+As you can see, you get the first element of the list (warning, it could be NULL in an empty list), and then you gets its siblings via the ->next attribute.
+
+With this concept you are already able to implement the hystoric 'car' function:
+
+```c
+ulver_object *the_car_function(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error("car requires an argument");
+        // evaluate the first argument
+        ulver_object *arg1 = ulver_eval(env, argv);
+        // check the argument is a list
+        if (arg1->type != ULVER_LIST) return ulver_error_form(env, argv, "is not a list");
+        // if it is an empty list, return nil
+        if (!arg1->list) return env->nil;
+        // otherwise return the first item
+        return arg1->list;
+}
+```
+
 
 Status
 ======
