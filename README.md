@@ -417,6 +417,33 @@ ulver_register_fun(env, "car", the_car_function)
 
 A note about env->nil, it is part of a series of global objects created on interpreter initialization. It is mapped to the "nil" object, as well as env->t is mapped to the "T" (true) object.
 
+Extending with shared libraries
+===============================
+
+The (load) function is able to load features from shared libraries (in addition to lisp source files). When the argument ends with .so, .dylib or .dll the specified library is opened and the 'libraryname_init' symbol is searched and executed.
+
+Let's write a simple extension shared library
+
+```c
+#include <ulver.h>
+
+int black_init(ulver_env *env) {
+        ulver_symbol_set(env, "*black*", 7, ulver_object_from_string(env, "metal", 5));
+        return 0;
+}
+```
+
+and build it
+
+```sh
+# gcc
+gcc -shared -fPIC -I. -o black.so black.c
+# clang (OSX)
+gcc -I. -undefined dynamic_lookup -shared -fPIC -o black.dylib black.c
+# windows
+
+```
+
 Status
 ======
 
