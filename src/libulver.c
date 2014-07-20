@@ -583,7 +583,12 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 		if (!argv) {
 			return ulver_error(env, "missing argument %.*s for lambda_list", (int) uf->len, uf->value);
 		}
-		ulver_symbol_set(env, uf->value, uf->len, ulver_eval(env, argv));
+		if (uf->len > 0 && uf->value[0] == '&') {
+			//TODO manage keywords
+		}
+		else {
+			ulver_symbol_set(env, uf->value, uf->len, ulver_eval(env, argv));
+		}
 		argv = argv->next;
 		uf = uf->next;
 	}
