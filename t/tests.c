@@ -196,4 +196,6 @@ void tests() {
 	test_num("(length (subseq (list 1 2 3) 0 0))", 0);
 	test_num("(length (subseq \"hello\" 0 3))", 3);
 
+	test_num("(defun additioner (x) \"i am the doc for additioner\" (+ x x))(additioner 15)", 30);
+
 }

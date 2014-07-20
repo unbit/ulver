@@ -602,7 +602,14 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 
 ulver_object *ulver_fun_defun(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "defun requires two arguments");	
-	ulver_symbol *us = ulver_register_fun2(env, argv->value, argv->len, ulver_fun_call_with_lambda_list, argv->next->list, argv->next->next);
+	ulver_symbol *us = NULL;
+	// is the function commented ?
+	if (argv->next->next && argv->next->next->type == ULVER_STRING) {
+		us = ulver_register_fun2(env, argv->value, argv->len, ulver_fun_call_with_lambda_list, argv->next->list, argv->next->next->next);
+	}
+	else {
+		us = ulver_register_fun2(env, argv->value, argv->len, ulver_fun_call_with_lambda_list, argv->next->list, argv->next->next);
+	}
 	return us->value;
 }
 
