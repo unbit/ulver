@@ -27,13 +27,14 @@ static void object_mark(ulver_env *env, ulver_object *uo) {
 
 void ulver_gc(ulver_env *env) {
 
+	uint64_t i;
+
 	env->gc_rounds++;
 
 	// iterate stack frames
 	ulver_stackframe *stack = env->stack;
 	while(stack) {
 		// iterate all locals
-		uint64_t i;
 		ulver_symbolmap *smap = stack->locals;
 		for(i=0;i<smap->hashtable_size;i++) {
 			ulver_symbol *us = smap->hashtable[i];
@@ -43,19 +44,11 @@ void ulver_gc(ulver_env *env) {
 				us = us->next;
 			}	
 		}
-		smap = stack->fun_locals;
-                for(i=0;i<smap->hashtable_size;i++) {
-                        ulver_symbol *us = smap->hashtable[i];
-                        while(us) {
-                                // mark the object and its children
-                                object_mark(env, us->value);
-                                us = us->next;
-                        }
-                }
-		
-		// get the return value (if any)
-		if (stack->ret) {
-			stack->ret->gc_mark = 1;
+		// get the return value (if any, a function could return multiple values)
+		ulver_object *ret = stack->ret;
+		while(ret) {
+			object_mark(env, ret);
+			ret = ret->ret_next;
 		}
 		stack = stack->prev;
 	}

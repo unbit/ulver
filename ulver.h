@@ -14,6 +14,7 @@
 #else
 #include <dlfcn.h>
 #endif
+#include <pthread.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -37,7 +38,6 @@ typedef struct ulver_source ulver_source;
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
 	ulver_symbolmap *locals;
-	ulver_symbolmap *fun_locals;
 	ulver_object *ret;
 };
 
@@ -78,6 +78,8 @@ struct ulver_env {
 	uint64_t max_memory;
 	uint64_t gc_freq;
 	uint64_t gc_rounds;
+	ulver_symbolmap *funcs;
+	ulver_symbolmap *macros;
 };
 
 struct ulver_object {
@@ -97,6 +99,7 @@ struct ulver_object {
 	uint8_t gc_protected;
 	ulver_symbolmap *map;
 	ulver_form *form;
+	ulver_object *ret_next;
 };
 
 struct ulver_form {

@@ -1,5 +1,20 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
+	if (!argv) return env->nil;
+	ulver_object *ret = ulver_eval(env, argv);
+	if (!ret) return NULL;
+	argv = argv->next;
+	ulver_object *ret2 = ret;
+	while(argv) {
+		ret2->ret_next = ulver_eval(env, argv);
+		if (!ret2->ret_next) return NULL;
+		ret2 = ret2->ret_next;
+		argv = argv->next;
+	}
+	return ret;
+}
+
 ulver_object *ulver_fun_length(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "read-from-string requires an argument");	
 
@@ -443,7 +458,7 @@ ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "function requires an argument");
         if (argv->type != ULVER_SYMBOL) return ulver_error(env, "function requires a symbol as argument");
-	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->global_stack->fun_locals, argv->value, argv->len, 0);
+	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, argv->value, argv->len, 0);
         if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
 	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
 	if (func_symbol->value->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
@@ -982,7 +997,7 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	if (!uf) return env->nil;
-	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->global_stack->fun_locals, uf->value, uf->len, 0);
+	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, uf->value, uf->len, 0);
 	if (!func_symbol) return ulver_error_form(env, uf, "undefined function");
 	ulver_object *func = func_symbol->value;
 	if (!func || func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
@@ -1100,8 +1115,9 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
 	uo->str = ulver_utils_strndup(env, name, len);
         uo->len = len;
         uo->size += (len + 1);
+	uo->gc_protected = 1;
         ulver_utils_toupper(uo->str, uo->len);
-        return ulver_symbolmap_set(env, env->global_stack->fun_locals, name, len, uo, 0);
+        return ulver_symbolmap_set(env, env->funcs, name, len, uo, 0);
 }
 
 ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *)) {
@@ -1176,7 +1192,7 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 	ulver_object *ret = NULL;
         while(uf) {
 		ret = ulver_eval(env, uf);
-                if (ret == NULL) break;
+		if (!ret) break;
                 uf = uf->next;
         }
 	return ret;
@@ -1186,8 +1202,8 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
 	ulver_form *uf = ulver_parse(env, source, strlen(source));
         ulver_object *ret = NULL;
         while(uf) {
-                ret = ulver_eval(env, uf);
-                if (ret == NULL) break;
+		ret = ulver_eval(env, uf);
+		if (!ret) break;
                 uf = uf->next;
         }
         return ret;
@@ -1206,8 +1222,13 @@ uint64_t ulver_destroy(ulver_env *env) {
 	while(env->stack) {
 		ulver_stack_pop(env);	
 	}
+
 	// call GC without stack
 	ulver_gc(env);
+
+	// destroy functions and macros
+	ulver_symbolmap_destroy(env, env->funcs);
+	ulver_symbolmap_destroy(env, env->macros);
 
 	// destroy the packages map
 	ulver_symbolmap_destroy(env, env->packages);
@@ -1250,6 +1271,9 @@ ulver_env *ulver_init() {
 
         env->alloc = ulver_alloc;
         env->free = ulver_free;
+
+	env->funcs = ulver_symbolmap_new(env); 
+	env->macros = ulver_symbolmap_new(env); 
 
         env->global_stack = ulver_stack_push(env);
 
@@ -1333,6 +1357,8 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "read", ulver_fun_read);
         ulver_register_fun(env, "function", ulver_fun_function);
+
+        ulver_register_fun(env, "values", ulver_fun_values);
 
         return env;
 }

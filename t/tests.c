@@ -7,7 +7,7 @@ uint64_t tests_failed = 0;
 void tests();
 
 void test_float(char *s, double d) {
-	printf("- running test_num for \"%s\", expect %f\n", s, d);
+	printf("- running test_float for \"%s\", expect %f\n", s, d);
 	ulver_object *ret = ulver_run(env, s);
 	if (!ret) {
 		ulver_report_error(env);
@@ -47,6 +47,48 @@ void test_num(char *s, int64_t n) {
 
         if (ret->n != n) {
                 printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n);
+                tests_failed++;
+                return;
+        }
+
+        tests_successfull++;
+}
+
+void test_two_nums(char *s, int64_t n, int64_t n2) {
+        printf("- running test_num for \"%s\", expect %lld and %lld\n", s, (long long int) n, (long long int) n2);
+        ulver_object *ret = ulver_run(env, s);
+        if (!ret) {
+                ulver_report_error(env);
+                tests_failed++;
+                return;
+        }
+
+	if (!ret->ret_next) {
+		printf("[FAILED] test for %s: did not returned 2 values\n");
+		tests_failed++;
+                return;
+	}
+
+        if (ret->type != ULVER_NUM) {
+                printf("[FAILED] test for %s: object is not a number\n", s);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->n != n) {
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n);
+                tests_failed++;
+                return;
+        }
+
+	if (ret->ret_next->type != ULVER_NUM) {
+                printf("[FAILED] test for %s: second object is not a number\n", s);
+                tests_failed++;
+                return;
+        }
+
+        if (ret->ret_next->n != n2) {
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n2);
                 tests_failed++;
                 return;
         }
@@ -197,5 +239,7 @@ void tests() {
 	test_num("(length (subseq \"hello\" 0 3))", 3);
 
 	test_num("(defun additioner (x) \"i am the doc for additioner\" (+ x x))(additioner 15)", 30);
+
+	test_two_nums("(values (+ 1 2)(+ 3 4))", 3, 7);
 
 }
