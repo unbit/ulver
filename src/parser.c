@@ -151,6 +151,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 		switch(c) {
 			case '(':
+				ulver_form_commit(env);
 				env->form_list_current = ulver_form_push(env, ULVER_LIST);
 				break;
 			case ')':
