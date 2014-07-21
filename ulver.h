@@ -89,6 +89,7 @@ struct ulver_coro {
 	uint64_t error_len;
 	uint64_t error_buf_len;
 	uint8_t trigger_gc;
+	ulver_form *argv;
 };
 
 struct ulver_thread {

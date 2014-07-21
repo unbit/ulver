@@ -34,7 +34,7 @@ ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
         return NULL;
 }
 
-static void timer_switch_back_to_me(uv_timer_t* handle) {
+static void timer_switch_back_to_me(uv_timer_t* handle, int status) {
 	ulver_coro *to_coro = (ulver_coro *) handle->data;
 	ulver_thread *ut = ulver_current_thread(to_coro->env);	
 	// do we need to switch ?
@@ -1372,7 +1372,9 @@ fatal:
         return NULL;
 }
 
-static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, uint8_t as_list) {
+static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form **argv, uint8_t as_list) {
+	if (!argv) return NULL;
+	ulver_form *uf = *argv;
 	ulver_object *ret = NULL;
 	//pthread_rwlock_unlock(&env->unsafe_lock);
 
@@ -1426,21 +1428,38 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 		ret = NULL;
 	}
 
+	/*
 	// switch back to main
+	printf("back to hub\n");
 	__splitstack_getcontext(ut->current_coro->ss_contexts);
 	swapcontext(&ut->current_coro->context, &ut->hub_context);
 	// run uv tasks
-	printf("back to main\n");
 	uv_run(ut->loop, UV_RUN_NOWAIT);
+	printf("ready to return %p\n", ret);
+	*/
 	return ret;
 }
 
 ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
-	return eval_do(env, ulver_current_thread(env), uf, 0);
+/*
+	ulver_thread *ut = ulver_current_thread(env);
+	if (ut->current_coro == NULL) {
+		printf("ready to switch\n");
+		ut->current_coro = ut->coros;
+		ut->current_coro->argv = uf;
+		__splitstack_setcontext(ut->current_coro->ss_contexts);
+        	swapcontext(&ut->hub_context, &ut->current_coro->context);
+		printf("back from coro !!! %p\n", ut->current_coro->stack->ret);
+		return ut->current_coro->stack->ret;
+	}
+	printf("NORMAL EVAL\n");
+*/
+	return eval_do(env, ulver_current_thread(env), &uf, 0);
+	
 }
 
 ulver_object *ulver_eval_list(ulver_env *env, ulver_form *uf) {
-	return eval_do(env, ulver_current_thread(env), uf, 1);
+	return eval_do(env, ulver_current_thread(env), &uf, 1);
 }
 
 struct ulver_thread_args {
@@ -1457,7 +1476,7 @@ void *run_new_thread(void *arg) {
         // for the new thread
         ulver_thread *ut = ulver_current_thread(env);
 	ut->t = pthread_self();
-        ulver_object *ret = eval_do(env, ut, argv, 0);
+        ulver_object *ret = eval_do(env, ut, &argv, 0);
 
         // the function ended
         // as the error status is per-thread, we need to make
@@ -1687,6 +1706,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	// uv callbacks only get ulver_coro pointer as data
 	// so we need an additional pointer to env
 	ut->coros->env = env;
+	ut->current_coro = ut->coros;
 
 	getcontext(&ut->coros->context);
 	size_t len= 0 ;
@@ -1697,9 +1717,9 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
         ut->coros->context.uc_stack.ss_sp = stack;
         ut->coros->context.uc_stack.ss_size = len;
         ut->coros->context.uc_stack.ss_flags = 0;
-        makecontext(&ut->coros->context, fake, 0);
+        makecontext(&ut->coros->context, (void (*)(void))eval_do, 4, env, ut, &ut->coros->argv, 0);
 
-	ut->current_coro = ut->coros;
+	//ut->current_coro = ut->coros;
 	//pthread_mutex_init(&ut->lock, NULL);
 	//pthread_mutex_lock(&ut->lock);
         pthread_setspecific(env->thread, (void *) ut);
@@ -1713,10 +1733,12 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 
 	pthread_rwlock_rdlock(&env->unsafe_lock);
 
+/*
 	//we can now switch to the new coro
 	__splitstack_setcontext(ut->coros->ss_contexts);
         swapcontext(&ut->hub_context, &ut->coros->context);
 	printf("back\n");	
+*/
         return ut;
 }
 
