@@ -62,6 +62,8 @@ static void symbolmap_resize(ulver_env *env, ulver_symbolmap *smap) {
 
 static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint8_t no_package) {
 
+	ulver_thread *ut = ulver_current_thread(env);
+	if (!ut) return NULL;
 	if (no_package) return NULL;
 
 	char *new_name = NULL;
@@ -89,7 +91,9 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
         }
 
         // the symbol has no package prefix, use the current one (if not cl-user)
+	// lock
         if (env->current_package == env->cl_user) return NULL;
+	// unlock
 
         // first of all check if the symbol is exported by the current package
         ulver_symbol *us = ulver_symbolmap_get(env, env->current_package->map, name, *len, 1);
@@ -215,10 +219,10 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 	return -1;	
 }
 
-ulver_stackframe *ulver_stack_push(ulver_env *env) {
+ulver_stackframe *ulver_stack_push(ulver_env *env, ulver_thread *ut) {
 	ulver_stackframe *ustack = env->alloc(env, sizeof(ulver_stackframe));
-	ulver_stackframe *previous_stackframe = env->stack;
-	env->stack = ustack;
+	ulver_stackframe *previous_stackframe = ut->stack;
+	ut->stack = ustack;
 	ustack->prev = previous_stackframe;
 	ustack->locals = ulver_symbolmap_new(env);
 	return ustack;
@@ -242,9 +246,9 @@ void ulver_symbolmap_destroy(ulver_env *env, ulver_symbolmap *smap) {
         env->free(env, smap, sizeof(ulver_symbolmap));	
 }
 
-void ulver_stack_pop(ulver_env *env) {
-	ulver_stackframe *ustack = env->stack;
-	env->stack = ustack->prev;
+void ulver_stack_pop(ulver_env *env, ulver_thread *ut) {
+	ulver_stackframe *ustack = ut->stack;
+	ut->stack = ustack->prev;
 
 	ulver_symbolmap_destroy(env, ustack->locals);
 

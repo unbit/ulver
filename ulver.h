@@ -34,6 +34,7 @@ typedef struct ulver_symbol ulver_symbol;
 typedef struct ulver_stackframe ulver_stackframe;
 typedef struct ulver_symbolmap ulver_symbolmap;
 typedef struct ulver_source ulver_source;
+typedef struct ulver_thread ulver_thread;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -45,22 +46,6 @@ struct ulver_source {
 	char *str;
 	uint64_t len;
 	ulver_source *next;
-};
-
-struct ulver_env {
-        struct ulver_object *caller;
-	struct ulver_stackframe *stack;
-	struct ulver_stackframe *global_stack;
-	void *(*alloc)(ulver_env *, uint64_t);
-	void (*free)(ulver_env *, void *, uint64_t);
-	ulver_object *t;
-	ulver_object *nil;
-        uint64_t mem;
-        uint64_t calls;
-	ulver_object *gc_root;
-	char *error;
-	uint64_t error_len;
-	uint64_t error_buf_len;
 	uint64_t lines;
 	uint64_t pos;
 	uint64_t line_pos;
@@ -71,13 +56,53 @@ struct ulver_env {
 	ulver_form *form_new;
 	uint8_t is_quoted;
 	uint8_t is_doublequoted;
+};
+
+
+struct ulver_thread {
+	char *error;
+	uint64_t error_len;
+	uint64_t error_buf_len;
+        ulver_object *caller;
+	ulver_stackframe *stack;
+	ulver_thread *prev;
+	ulver_thread *next;
+};
+
+struct ulver_env {
+
+	pthread_t creator_thread;
+
+	void *(*alloc)(ulver_env *, uint64_t);
+	void (*free)(ulver_env *, void *, uint64_t);
+
+	FILE *stdin;
+	FILE *stdout;
+	FILE *stderr;
+
+	ulver_object *t;
+	ulver_object *nil;
+
+	// protect it whenever a new thread is created or destroyed
+	pthread_key_t thread;
+
+	// protect them at every access
 	ulver_source *sources;
 	ulver_symbolmap *packages;
-	ulver_object *current_package;
+
 	ulver_object *cl_user;
+	ulver_object *current_package;
+
+	//  gc always runs in locked context
+	ulver_object *gc_root;
+        uint64_t mem;
+        uint64_t calls;
 	uint64_t max_memory;
 	uint64_t gc_freq;
 	uint64_t gc_rounds;
+
+	// protect them
+	ulver_symbolmap *globals;
 	ulver_symbolmap *funcs;
 	ulver_symbolmap *macros;
 };
@@ -137,8 +162,8 @@ uint64_t ulver_utils_length(ulver_object *);
 ulver_symbol *ulver_symbolmap_get(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 ulver_symbol *ulver_symbolmap_set(ulver_env *, ulver_symbolmap *, char *, uint64_t, ulver_object *, uint8_t);
 
-ulver_stackframe *ulver_stack_push(ulver_env *);
-void ulver_stack_pop(ulver_env *);
+ulver_stackframe *ulver_stack_push(ulver_env *, ulver_thread *);
+void ulver_stack_pop(ulver_env *, ulver_thread *);
 
 ulver_object *ulver_object_new(ulver_env *, uint8_t);
 ulver_object *ulver_object_push(ulver_env *, ulver_object *, ulver_object *);
@@ -196,5 +221,7 @@ ulver_object *ulver_run(ulver_env *, char *);
 
 ulver_object *ulver_utils_nth(ulver_object *, uint64_t);
 void ulver_utils_print_form(ulver_form *);
+
+ulver_thread *ulver_current_thread(ulver_env *);
 
 char *ulver_utils_is_library(ulver_env *env, char *);

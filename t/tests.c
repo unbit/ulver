@@ -64,7 +64,7 @@ void test_two_nums(char *s, int64_t n, int64_t n2) {
         }
 
 	if (!ret->ret_next) {
-		printf("[FAILED] test for %s: did not returned 2 values\n");
+		printf("[FAILED] test for %s: did not returned 2 values\n", s);
 		tests_failed++;
                 return;
 	}
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
 	// tune gc frequency to 10
-	env->gc_freq = 10;
+	//env->gc_freq = 10;
 
 	tests();
 

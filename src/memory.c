@@ -31,6 +31,9 @@ void ulver_gc(ulver_env *env) {
 
 	env->gc_rounds++;
 
+	return;
+
+/*
 	// iterate stack frames
 	ulver_stackframe *stack = env->stack;
 	while(stack) {
@@ -52,6 +55,7 @@ void ulver_gc(ulver_env *env) {
 		}
 		stack = stack->prev;
 	}
+*/
 
 	// and now sweep ...
 

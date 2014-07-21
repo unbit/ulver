@@ -158,13 +158,16 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
 }
 
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
-	env->caller = u_func;
-        ulver_stack_push(env);
+	ulver_thread *ut = ulver_current_thread(env);
+	ut->caller = u_func;
+        ulver_stack_push(env, ut);
+	// lock
         env->calls++;
+	// unlock
         ulver_object *ret = u_func->func(env, uf);
-        ulver_stack_pop(env);
+        ulver_stack_pop(env, ut);
         // this ensure the returned value is not garbage collected
-        env->stack->ret = ret;
+        ut->stack->ret = ret;
 
 	// do we need to call gc ?
 	if (env->calls % env->gc_freq == 0) {
@@ -573,7 +576,9 @@ ulver_object *ulver_fun_mul(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_higher(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "higher requires an argument");	
 	ulver_object *uo0 = ulver_eval(env, argv);
+	if (!uo0) return NULL;
 	ulver_object *uo1 = ulver_eval(env, argv->next);
+	if (!uo1) return NULL;
 	int64_t n0 = uo0->n;
 	int64_t n1 = uo1->n;
 	return n0 > n1 ? env->t : env->nil;
@@ -583,7 +588,9 @@ ulver_object *ulver_fun_higher(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "higher requires an argument");	
 	ulver_object *uo0 = ulver_eval(env, argv);
+	if (!uo0) return NULL;
 	ulver_object *uo1 = ulver_eval(env, argv->next);
+	if (!uo1) return NULL;
 	int64_t n0 = uo0->n;
 	int64_t n1 = uo1->n;
 	return n0 == n1 ? env->t : env->nil;
@@ -591,8 +598,9 @@ ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
 
 ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) {
 	// lambda and progn must be read before the lisp engine changes env->caller
-	ulver_form *uf = env->caller->lambda_list;
-	ulver_form *progn = env->caller->form;
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_form *uf = ut->caller->lambda_list;
+	ulver_form *progn = ut->caller->form;
 
 	while(uf) {
 		if (!argv) {
@@ -737,7 +745,7 @@ ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "setq requires two arguments");
 	ulver_object *uo = ulver_eval(env, argv->next);
 	if (!uo) return NULL;
-	ulver_symbol *us = ulver_symbolmap_set(env, env->global_stack->locals, argv->value, argv->len, uo, 0);
+	ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 0);
 	if (!us) return NULL;
 	return uo;
 }
@@ -943,32 +951,34 @@ ulver_object *ulver_package(ulver_env *env, char *value, uint64_t len) {
 
 
 int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
+	ulver_thread *ut = ulver_current_thread(env);
         // is it a global var ?
         if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-                return ulver_symbolmap_delete(env, env->global_stack->locals, name, len, 0);
+                return ulver_symbolmap_delete(env, env->globals, name, len, 0);
         }
-        ulver_stackframe *stack = env->stack;
+        ulver_stackframe *stack = ut->stack;
         while(stack) {
                 if (!ulver_symbolmap_delete(env, stack->locals, name, len, 0)) {
 			return 0;
 		}
                 stack = stack->prev;
         }
-        return -1;
+        return ulver_symbolmap_delete(env, env->globals, name, len, 0);
 }
 
 ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_get(env, env->global_stack->locals, name, len, 0);
+		return ulver_symbolmap_get(env, env->globals, name, len, 0);
 	}	
-	ulver_stackframe *stack = env->stack;
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_stackframe *stack = ut->stack;
 	while(stack) {
 		ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, name, len, 0);
 		if (us) return us;
 		stack = stack->prev;
 	}
-	return NULL;
+	return ulver_symbolmap_get(env, env->globals, name, len, 0);
 }
 
 ulver_object *ulver_object_from_symbol(ulver_env *env, ulver_form *uf) {
@@ -1010,14 +1020,15 @@ ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
 }
 
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
+	ulver_thread *ut = ulver_current_thread(env);
 	// when trying to set an error, check if a previous one is set
-	if (env->error) {
+	if (ut->error) {
 		// if we are not setting a new error, we are attempting to free it...
 		if (!fmt) {
-			env->free(env, env->error, env->error_buf_len);
-			env->error = NULL;
-			env->error_len = 0;
-			env->error_buf_len = 0;
+			env->free(env, ut->error, ut->error_buf_len);
+			ut->error = NULL;
+			ut->error_len = 0;
+			ut->error_buf_len = 0;
 		}
 		return NULL;
 	}
@@ -1041,20 +1052,20 @@ ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
 			goto fatal;
         	}
 	} 
-	env->error = buf;
-	env->error_len = ret;
-	env->error_buf_len = buf_size;
+	ut->error = buf;
+	ut->error_len = ret;
+	ut->error_buf_len = buf_size;
 	return NULL;
 
 fatal:
 	env->free(env, buf, buf_size);
-	env->error = ulver_utils_strdup(env, "FATAL ERROR");
-        env->error_len = strlen(env->error);
-	env->error_buf_len = env->error_len + 1;
+	ut->error = ulver_utils_strdup(env, "FATAL ERROR");
+        ut->error_len = strlen(ut->error);
+	ut->error_buf_len = ut->error_len + 1;
         return NULL;
 }
 
-static ulver_object *eval_do(ulver_env *env, ulver_form *uf, uint8_t as_list) {
+static ulver_object *eval_do(ulver_env *env, ulver_thread *ut,  ulver_form *uf, uint8_t as_list) {
 	ulver_object *ret = NULL;
 	switch(uf->type) {
 		// if it is a list, get the first member and eval it
@@ -1093,18 +1104,18 @@ static ulver_object *eval_do(ulver_env *env, ulver_form *uf, uint8_t as_list) {
 			
 	}
 
-	if (env->error) {
+	if (ut->error) {
 		ret = NULL;
 	}
 	return ret;
 }
 
 ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
-	return eval_do(env, uf, 0);
+	return eval_do(env, ulver_current_thread(env), uf, 0);
 }
 
 ulver_object *ulver_eval_list(ulver_env *env, ulver_form *uf) {
-	return eval_do(env, uf, 1);
+	return eval_do(env, ulver_current_thread(env), uf, 1);
 }
 
 ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulver_object *(*func)(ulver_env *, ulver_form *), ulver_form *lambda_list, ulver_form *progn) {
@@ -1127,9 +1138,10 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_set(env, env->global_stack->locals, name, len, uo, 0);
+		return ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
 	}	
-	return ulver_symbolmap_set(env, env->stack->locals, name, len, uo, 0);
+	ulver_thread *ut = ulver_current_thread(env);
+	return ulver_symbolmap_set(env, ut->stack->locals, name, len, uo, 0);
 }
 
 ulver_object *ulver_load(ulver_env *env, char *filename) {
@@ -1210,6 +1222,14 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
 }
 
 uint64_t ulver_destroy(ulver_env *env) {
+	if (pthread_self() != env->creator_thread) {
+		fprintf(env->stderr, "only the creator thread can call ulver_destroy()\n");
+		return env->mem;
+	}
+
+	// wait for all registered threads...
+
+
 	// clear errors (if any)
 	ulver_error(env, NULL);
 	// unprotect objects
@@ -1218,33 +1238,36 @@ uint64_t ulver_destroy(ulver_env *env) {
 		uo->gc_protected = 0;
 		uo = uo->gc_next;
 	}
-	// consume the whole stack
-	while(env->stack) {
-		ulver_stack_pop(env);	
+
+	// consume the whole stack of all registered threads
+	ulver_thread *ut = ulver_current_thread(env);
+	while(ut->stack) {
+		ulver_stack_pop(env, ut);	
 	}
 
 	// call GC without stack
 	ulver_gc(env);
 
 	// destroy functions and macros
+	ulver_symbolmap_destroy(env, env->globals);
 	ulver_symbolmap_destroy(env, env->funcs);
 	ulver_symbolmap_destroy(env, env->macros);
 
 	// destroy the packages map
 	ulver_symbolmap_destroy(env, env->packages);
 
-	// now destroy the form tree
-	ulver_form *root = env->form_root;
-	while(root) {
-		ulver_form *next = root->next;
-		ulver_form_destroy(env, root);
-		root = next;
-	}	
 
-	// and the sources list
+	// destroy sources list
 	ulver_source *source = env->sources;
 	while(source) {
 		ulver_source *next = source->next;
+		// destroy the form tree
+		ulver_form *root = source->form_root;
+		while(root) {
+			ulver_form *next = root->next;
+			ulver_form_destroy(env, root);
+			root = next;
+		}
 		env->free(env, source->str, source->len+1);
 		env->free(env, source, sizeof(ulver_source));
 		source = next;
@@ -1258,40 +1281,53 @@ uint64_t ulver_destroy(ulver_env *env) {
 }
 
 void ulver_report_error(ulver_env *env) {
-	if (env->error) {
-		printf("\n*** ERROR: %.*s ***\n", (int) env->error_len, env->error);
+	ulver_thread *ut = ulver_current_thread(env);
+	if (ut->error) {
+		fprintf(env->stderr, "\n*** ERROR: %.*s ***\n", (int) ut->error_len, ut->error);
                 // clear error
                 ulver_error(env, NULL);
 	}
+}
+
+ulver_thread *ulver_current_thread(ulver_env *env) {
+	ulver_thread *ut = (ulver_thread *) pthread_getspecific(env->thread);
+	if (ut) return ut;
+	ut = env->alloc(env, sizeof(ulver_thread));
+        pthread_setspecific(env->thread, (void *) ut);
+        ulver_stack_push(env, ut);
+        return ut;
 }
 
 ulver_env *ulver_init() {
 
         ulver_env *env = calloc(1, sizeof(ulver_env));
 
+	env->creator_thread = pthread_self();
+	if (pthread_key_create(&env->thread, NULL)) {
+		ulver_destroy(env);
+		return NULL;
+	}
+
         env->alloc = ulver_alloc;
         env->free = ulver_free;
 
+	env->stdin = stdin;
+	env->stdout = stdout;
+	env->stderr = stderr;
+
+	env->globals = ulver_symbolmap_new(env); 
 	env->funcs = ulver_symbolmap_new(env); 
 	env->macros = ulver_symbolmap_new(env); 
 
-        env->global_stack = ulver_stack_push(env);
-
-	// 30 megs memory limit before triggering gc
-	env->max_memory = 30 * 1024 * 1024;
-	// invoke gc every 1000 calls
-	env->gc_freq = 1000;
-
         // create the packages map
         env->packages = ulver_symbolmap_new(env);
-        // create the CL-USER package and set it as current
+        // create the CL-USER package (will be set as current)
         env->cl_user = ulver_package(env, "CL-USER", 7);
         env->current_package = env->cl_user;
 
 	ulver_symbol_set(env, "*package*", 9, env->cl_user);
 
         // the following objects must be protected from gc
-
         env->t = ulver_object_new(env, ULVER_TRUE);
         env->t->gc_protected = 1;
 	ulver_symbol_set(env, "t", 1, env->t);
@@ -1300,8 +1336,12 @@ ulver_env *ulver_init() {
         env->nil->gc_protected = 1;
 	ulver_symbol_set(env, "nil", 3, env->nil);
 
-	// register functions
+	// 30 megs memory limit before triggering gc
+	env->max_memory = 30 * 1024 * 1024;
+	// invoke gc every 1000 calls
+	env->gc_freq = 1000;
 
+	// register functions
         ulver_register_fun(env, "+", ulver_fun_add);
         ulver_register_fun(env, "-", ulver_fun_sub);
         ulver_register_fun(env, "*", ulver_fun_mul);
