@@ -1,4 +1,4 @@
-OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/libulver.o
+OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/hub.o src/libulver.o
 ifeq ($(OS), Windows_NT)
 	LDFLAGS=-luv
 	LIBS=
@@ -18,7 +18,7 @@ endif
 all: libulver.a $(LIBNAME)
 	$(CC) -fuse-ld=gold -I. -g -o $(BINNAME) main.c libulver.a $(LDFLAGS) $(LIBS)
 
-src/%.o: src/%.c
+src/%.o: src/%.c ulver.h
 	$(CC) -fsplit-stack -I. $(CFLAGS) -g -o $@ -c $<
 
 libulver.a: $(OBJECTS) 

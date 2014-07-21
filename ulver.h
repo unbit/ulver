@@ -81,7 +81,6 @@ struct ulver_coro {
 	ulver_env *env;
 	void *ss_contexts[10];
 	ucontext_t context;
-	ulver_coro *prev;
 	ulver_coro *next;
 	ulver_stackframe *stack;
         ulver_object *caller;
@@ -89,7 +88,9 @@ struct ulver_coro {
 	uint64_t error_len;
 	uint64_t error_buf_len;
 	uint8_t trigger_gc;
-	ulver_form *argv;
+	ulver_coro *scheduled_prev;
+	ulver_coro *scheduled_next;
+	uint8_t dead;
 };
 
 struct ulver_thread {
@@ -99,11 +100,13 @@ struct ulver_thread {
 	ulver_thread *next;
 	// when set, the structure can be destroyed
 	uint8_t dead;
-	uv_loop_t *loop;
-	ucontext_t hub_context;
+	uv_loop_t *hub_loop;
+	ulver_coro *hub;
+	ulver_coro *main_coro;
 	ulver_coro *coros;
 	ulver_coro *current_coro;
-	ulver_coro *scheduled_coros;
+	ulver_coro *scheduled_coros_head;
+	ulver_coro *scheduled_coros_tail;
 };
 
 struct ulver_message {

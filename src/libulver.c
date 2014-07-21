@@ -1,5 +1,7 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_all_threads(ulver_env *env, ulver_form *argv) {
 	ulver_object *threads = ulver_object_new(env, ULVER_LIST);
 	pthread_rwlock_rdlock(&env->threads_lock);
@@ -36,17 +38,27 @@ ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
 
 static void timer_switch_back_to_me(uv_timer_t* handle, int status) {
 	ulver_coro *to_coro = (ulver_coro *) handle->data;
+	printf("to_coro = %p\n", to_coro);
 	ulver_thread *ut = ulver_current_thread(to_coro->env);	
-	// do we need to switch ?
-	if (ut->current_coro != to_coro) {
-		// switch back
-		printf("switch required\n");
+	uv_timer_stop(handle);
+	ut->current_coro = to_coro;
+	__splitstack_getcontext(ut->hub->ss_contexts);
+	if (to_coro != ut->main_coro) {
+		__splitstack_setcontext(ut->current_coro->ss_contexts);		
 	}
+	swapcontext(&ut->hub->context, &ut->current_coro->context);
 }
 
 static void switch_to_hub(ulver_env *env, ulver_thread *ut) {
-	__splitstack_getcontext(ut->current_coro->ss_contexts);
-	swapcontext(&ut->current_coro->context, &ut->hub_context);
+	printf("SWITCHING TO HUB\n");
+	ulver_coro *current_coro = ut->current_coro;	
+	ut->current_coro = ut->hub;
+	if (current_coro != ut->main_coro) {
+		__splitstack_getcontext(current_coro->ss_contexts);
+	}
+	__splitstack_setcontext(ut->hub->ss_contexts);
+	swapcontext(&current_coro->context, &ut->hub->context);
+	printf("BACK FROM HUB\n");
 }
 
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
@@ -54,14 +66,17 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 	ulver_thread *ut = ulver_current_thread(env);
         ulver_object *uo = ulver_eval(env, argv);
         if (uo->type == ULVER_NUM) {
+		printf("current coro = %p\n", ut->current_coro);
+		// ensure the hub is running
+		ulver_hub(env);
 		//pthread_rwlock_unlock(&env->unsafe_lock);
 		uv_timer_t timer_req;
-		uv_timer_init(ut->loop, &timer_req);
+		uv_timer_init(ut->hub_loop, &timer_req);
 		timer_req.data = ut->current_coro;
+		printf("coro = %p\n", timer_req.data);
 		uv_timer_start(&timer_req, timer_switch_back_to_me, uo->n * 1000, 0);
 		switch_to_hub(env, ut);
-		// back from hub
-		uv_timer_stop(&timer_req);
+		printf("back to me %p\n", ut->current_coro);
 		//pthread_rwlock_rdlock(&env->unsafe_lock);
         }
         else if (uo->type == ULVER_FLOAT) {
@@ -69,6 +84,7 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 		usleep(uo->d * (1000*1000));
 		pthread_rwlock_rdlock(&env->unsafe_lock);
         }
+	printf("returning\n");
         return env->nil;
 
 }
@@ -1372,9 +1388,7 @@ fatal:
         return NULL;
 }
 
-static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form **argv, uint8_t as_list) {
-	if (!argv) return NULL;
-	ulver_form *uf = *argv;
+static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, uint8_t as_list) {
 	ulver_object *ret = NULL;
 	//pthread_rwlock_unlock(&env->unsafe_lock);
 
@@ -1454,12 +1468,12 @@ ulver_object *ulver_eval(ulver_env *env, ulver_form *uf) {
 	}
 	printf("NORMAL EVAL\n");
 */
-	return eval_do(env, ulver_current_thread(env), &uf, 0);
+	return eval_do(env, ulver_current_thread(env), uf, 0);
 	
 }
 
 ulver_object *ulver_eval_list(ulver_env *env, ulver_form *uf) {
-	return eval_do(env, ulver_current_thread(env), &uf, 1);
+	return eval_do(env, ulver_current_thread(env), uf, 1);
 }
 
 struct ulver_thread_args {
@@ -1476,7 +1490,7 @@ void *run_new_thread(void *arg) {
         // for the new thread
         ulver_thread *ut = ulver_current_thread(env);
 	ut->t = pthread_self();
-        ulver_object *ret = eval_do(env, ut, &argv, 0);
+        ulver_object *ret = eval_do(env, ut, argv, 0);
 
         // the function ended
         // as the error status is per-thread, we need to make
@@ -1700,24 +1714,12 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
 	ut->t = pthread_self();
-	ut->loop = uv_loop_new();
 
-	ut->coros = env->alloc(env, sizeof(ulver_coro));
+	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
 	// uv callbacks only get ulver_coro pointer as data
 	// so we need an additional pointer to env
-	ut->coros->env = env;
-	ut->current_coro = ut->coros;
-
-	getcontext(&ut->coros->context);
-	size_t len= 0 ;
-	int off = 0;
-	void *stack = __splitstack_makecontext(8192, ut->coros->ss_contexts, &len);
-	__splitstack_block_signals_context(ut->coros->ss_contexts, &off, NULL);	
-	ut->coros->context.uc_link = 0;
-        ut->coros->context.uc_stack.ss_sp = stack;
-        ut->coros->context.uc_stack.ss_size = len;
-        ut->coros->context.uc_stack.ss_flags = 0;
-        makecontext(&ut->coros->context, (void (*)(void))eval_do, 4, env, ut, &ut->coros->argv, 0);
+	ut->main_coro->env = env;
+	ut->current_coro = ut->main_coro;
 
 	//ut->current_coro = ut->coros;
 	//pthread_mutex_init(&ut->lock, NULL);
@@ -1876,6 +1878,8 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "socket-listen", ulver_fun_socket_listen);
         ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
+
+        ulver_register_fun(env, "make-coro", ulver_fun_make_coro);
 
         return env;
 }
