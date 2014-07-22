@@ -72,7 +72,9 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
 	char *colon = NULL;
         if (*len > 2 && name[0] != ':' && (colon = memchr(name, ':', *len)) ) {
                 // now check if the package exists
+		pthread_rwlock_rdlock(&env->packages_lock);
                 ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, colon-name, 1);
+		pthread_rwlock_unlock(&env->packages_lock);
                 if (!package) {
                         ulver_error(env, "unable to find package %.*s", colon-name, name);
 			*len = 0;
@@ -92,20 +94,24 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
 
         // the symbol has no package prefix, use the current one (if not cl-user)
 	// lock
-        if (env->current_package == env->cl_user) return NULL;
+	pthread_rwlock_rdlock(&env->packages_lock);
+	ulver_object *current_package = env->current_package;
+	pthread_rwlock_unlock(&env->packages_lock);
+
+        if (current_package == env->cl_user) return NULL;
 	// unlock
 
         // first of all check if the symbol is exported by the current package
-        ulver_symbol *us = ulver_symbolmap_get(env, env->current_package->map, name, *len, 1);
+        ulver_symbol *us = ulver_symbolmap_get(env, current_package->map, name, *len, 1);
         if (!us) return NULL;
 
         // it is exported, let's prefix it (we use raw memory, as we will free it asap);
-        new_name = malloc(env->current_package->len + 1 + *len);
-        memcpy(new_name, env->current_package->str, env->current_package->len);
-        new_name[env->current_package->len] = ':';
-        memcpy(new_name + env->current_package->len + 1, name, *len);
+        new_name = malloc(current_package->len + 1 + *len);
+        memcpy(new_name, current_package->str, current_package->len);
+        new_name[current_package->len] = ':';
+        memcpy(new_name + current_package->len + 1, name, *len);
 
-	*len += env->current_package->len + 1;
+	*len += current_package->len + 1;
 
         return new_name;
 }

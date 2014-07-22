@@ -54,12 +54,12 @@ struct ulver_source {
 	ulver_form *form_root;
 	ulver_form *form_list_current;
 	ulver_form *form_new;
-	uint8_t is_quoted;
 	uint8_t is_doublequoted;
 };
 
 
 struct ulver_thread {
+	pthread_mutex_t lock;
 	char *error;
 	uint64_t error_len;
 	uint64_t error_buf_len;
@@ -83,27 +83,38 @@ struct ulver_env {
 	ulver_object *t;
 	ulver_object *nil;
 
-	// protect it whenever a new thread is created or destroyed
 	pthread_key_t thread;
 
+	pthread_rwlock_t threads_lock;
+	ulver_thread *threads;
+
 	// protect them at every access
+	pthread_mutex_t sources_lock;
 	ulver_source *sources;
+
+	pthread_rwlock_t packages_lock;
 	ulver_symbolmap *packages;
 
 	ulver_object *cl_user;
+
+	pthread_rwlock_t current_package_lock;
 	ulver_object *current_package;
 
 	//  gc always runs in locked context
-	ulver_object *gc_root;
         uint64_t mem;
         uint64_t calls;
 	uint64_t max_memory;
+
+	ulver_object *gc_root;
 	uint64_t gc_freq;
 	uint64_t gc_rounds;
 
 	// protect them
+	pthread_rwlock_t globals_lock;
 	ulver_symbolmap *globals;
+	pthread_rwlock_t funcs_lock;
 	ulver_symbolmap *funcs;
+	pthread_rwlock_t macros_lock;
 	ulver_symbolmap *macros;
 };
 

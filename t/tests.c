@@ -55,7 +55,7 @@ void test_num(char *s, int64_t n) {
 }
 
 void test_two_nums(char *s, int64_t n, int64_t n2) {
-        printf("- running test_num for \"%s\", expect %lld and %lld\n", s, (long long int) n, (long long int) n2);
+        printf("- running test_two_nums for \"%s\", expect %lld and %lld\n", s, (long long int) n, (long long int) n2);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);

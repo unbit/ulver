@@ -78,11 +78,13 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	source->len = len;
 
 	//lock
+	pthread_mutex_lock(&env->sources_lock);
 	if (env->sources) {
 		ulver_source *first = env->sources;
 		source->next = first;
 	}
 	env->sources = source;
+	pthread_mutex_unlock(&env->sources_lock);
 	//unlock
 
 	// use the new memory

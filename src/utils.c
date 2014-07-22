@@ -185,10 +185,10 @@ void ulver_utils_print_form(ulver_form *form) {
 	}
 
         if (form->type == ULVER_STRING) {
-        	printf("\"%.*s\"", (int)form->len, form->value);
+        	fprintf(env->stdout, "\"%.*s\"", (int)form->len, form->value);
 		return;
         }
-        printf("%.*s", (int)form->len, form->value);
+        fprintf(env->stdout, "%.*s", (int)form->len, form->value);
 }
 
 uint64_t ulver_utils_length(ulver_object *uo) {

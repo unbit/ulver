@@ -109,7 +109,7 @@ ulver_object *ulver_fun_read_from_string(ulver_env *env, ulver_form *argv) {
 
 ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
 	char buf[8192];
-        if (fgets(buf, 8192, stdin)) {
+        if (fgets(buf, 8192, env->stdin)) {
                 size_t len = strlen(buf);
                 if (buf[len-1] == '\n') len--;
         	ulver_form *uf = ulver_parse(env, buf, len);
@@ -159,6 +159,8 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
 
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	ulver_thread *ut = ulver_current_thread(env);
+	// lock the thread (no gc involved while it is running)
+	pthread_mutex_lock(&ut->lock);
 	ut->caller = u_func;
         ulver_stack_push(env, ut);
 	// lock
@@ -168,7 +170,11 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
         ulver_stack_pop(env, ut);
         // this ensure the returned value is not garbage collected
         ut->stack->ret = ret;
+	// unlock the thread, now the gc can run
+	pthread_mutex_unlock(&ut->lock);
 
+	// gc-phase, lock it !!!
+	pthread_mutex_lock(&env->gc_lock);
 	// do we need to call gc ?
 	if (env->calls % env->gc_freq == 0) {
 		ulver_gc(env);
@@ -176,10 +182,11 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	else if (env->mem > env->max_memory) {
 		ulver_gc(env);
 		if (env->mem > env->max_memory) {
-			return ulver_error(env, "OUT OF MEMORY: max %llu, current %llu", env->max_memory, env->mem);
+			ret = ulver_error(env, "OUT OF MEMORY: max %llu, current %llu", env->max_memory, env->mem);
 		}
 	}
-
+	// unlock the gc, another one can run
+	pthread_mutex_unlock(&env->gc_lock);
         return ret;
 }
 
@@ -370,11 +377,15 @@ ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
                 name++; len--;
         }
 
+	pthread_rwlock_rdlock(&env->packages_lock);
 	ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, len, 1);
+	pthread_rwlock_unlock(&env->packages_lock);
 	if (!package) {
 		return ulver_error(env, "unable to find package %.*s", len, name);
 	}
+	pthread_rwlock_wrlock(&env->packages_lock);
 	env->current_package = package->value;
+	pthread_rwlock_unlock(&env->packages_lock);
 	ulver_symbol_set(env, "*package*", 9, env->current_package);
 	return package->value;
 }
@@ -461,7 +472,11 @@ ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "function requires an argument");
         if (argv->type != ULVER_SYMBOL) return ulver_error(env, "function requires a symbol as argument");
+
+	pthread_rwlock_rdlock(&env->funcs_lock);
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, argv->value, argv->len, 0);
+	pthread_rwlock_unlock(&env->funcs_lock);
+
         if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
 	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
 	if (func_symbol->value->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
@@ -763,7 +778,7 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
 // TODO find a way to better manage memory
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 	char buf[8192];
-	if (fgets(buf, 8192, stdin)) {
+	if (fgets(buf, 8192, env->stdin)) {
 		size_t len = strlen(buf);
 		if (buf[len-1] == '\n') len--;
 		return ulver_object_from_string(env, buf, len);
@@ -863,6 +878,8 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	uo->type = type;
 	uo->size = sizeof(ulver_object);
 
+	pthread_mutex_lock(&env->gc_lock);
+
 	// put in the gc list
 	if (!env->gc_root) {
 		env->gc_root = uo;
@@ -873,10 +890,15 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	env->gc_root = uo;
 	uo->gc_next = current_root;
 	current_root->gc_prev = uo;
+
+	pthread_mutex_unlock(&env->gc_lock);
+
 	return uo;
 }
 
 void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
+	pthread_mutex_lock(&env->gc_lock);
+
 	ulver_object *prev = uo->gc_prev;
 	ulver_object *next = uo->gc_next;
 
@@ -891,6 +913,8 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 	if (uo == env->gc_root) {
 		env->gc_root = next;
 	}
+
+	pthread_mutex_unlock(&env->gc_lock);
 
 	if (uo->str) {
 		// strings memory area is zero-suffixed
@@ -945,7 +969,10 @@ ulver_object *ulver_package(ulver_env *env, char *value, uint64_t len) {
 	// this is the map of exported symbols
 	uo->map = ulver_symbolmap_new(env);
 	// package names do not take the current namespace into account
+
+	pthread_rwlock_wrlock(&env->packages_lock);
 	ulver_symbolmap_set(env, env->packages, uo->str, uo->len, uo, 1);
+	pthread_rwlock_unlock(&env->packages_lock);
         return uo;
 }
 
@@ -954,7 +981,10 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 	ulver_thread *ut = ulver_current_thread(env);
         // is it a global var ?
         if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-                return ulver_symbolmap_delete(env, env->globals, name, len, 0);
+		pthread_mutex_wrlock(&env->packages_lock);
+                int ret = ulver_symbolmap_delete(env, env->globals, name, len, 0);
+		pthread_mutex_unlock(&env->packages_lock);
+		return ret;
         }
         ulver_stackframe *stack = ut->stack;
         while(stack) {
@@ -963,13 +993,19 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 		}
                 stack = stack->prev;
         }
-        return ulver_symbolmap_delete(env, env->globals, name, len, 0);
+	pthread_mutex_wrlock(&env->packages_lock);
+        int ret ulver_symbolmap_delete(env, env->globals, name, len, 0);
+	pthread_mutex_unlock(&env->packages_lock);
+	return ret;
 }
 
 ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_get(env, env->globals, name, len, 0);
+		pthread_mutex_rdlock(&env->packages_lock);
+		ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
+		pthread_mutex_unlock(&env->packages_lock);
+		return us;
 	}	
 	ulver_thread *ut = ulver_current_thread(env);
 	ulver_stackframe *stack = ut->stack;
@@ -978,7 +1014,10 @@ ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 		if (us) return us;
 		stack = stack->prev;
 	}
-	return ulver_symbolmap_get(env, env->globals, name, len, 0);
+	pthread_mutex_rdlock(&env->packages_lock);
+	ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
+	pthread_mutex_unlock(&env->packages_lock);
+	return us;
 }
 
 ulver_object *ulver_object_from_symbol(ulver_env *env, ulver_form *uf) {
