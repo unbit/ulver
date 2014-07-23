@@ -6,17 +6,17 @@ void *ulver_alloc(ulver_env *env, uint64_t len) {
 		perror("calloc()");
 		exit(1);
 	}
-	pthread_rwlock_wrlock(&env->mem_lock);
+	pthread_mutex_lock(&env->mem_lock);
 	env->mem += len;
-	pthread_rwlock_unlock(&env->mem_lock);
+	pthread_mutex_unlock(&env->mem_lock);
 	return ptr;
 }
 
 void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 	free(ptr);
-	pthread_rwlock_wrlock(&env->mem_lock);
+	pthread_mutex_lock(&env->mem_lock);
 	env->mem -= amount;
-	pthread_rwlock_unlock(&env->mem_lock);
+	pthread_mutex_unlock(&env->mem_lock);
 }
 
 static void object_mark(ulver_env *env, ulver_object *uo) {
@@ -44,8 +44,8 @@ void ulver_gc(ulver_env *env) {
 	ulver_thread *ut = env->threads;
 	while(ut) {
 		// lock the thread (it could be running)
-		ulver_mutex_lock(&ut->lock);
-		ulver_stackframe *stack = env->stack;
+		pthread_mutex_lock(&ut->lock);
+		ulver_stackframe *stack = ut->stack;
 		while(stack) {
 			// iterate all locals
 			ulver_symbolmap *smap = stack->locals;

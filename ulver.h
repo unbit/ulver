@@ -25,6 +25,9 @@
 #define ULVER_KEYWORD 6
 #define ULVER_PACKAGE 7
 #define ULVER_FORM 8
+#define ULVER_STREAM 9
+#define ULVER_THREAD 10
+#define ULVER_CHANNEL 11
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -35,6 +38,7 @@ typedef struct ulver_stackframe ulver_stackframe;
 typedef struct ulver_symbolmap ulver_symbolmap;
 typedef struct ulver_source ulver_source;
 typedef struct ulver_thread ulver_thread;
+typedef struct ulver_message ulver_message;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -59,6 +63,7 @@ struct ulver_source {
 
 
 struct ulver_thread {
+	pthread_t t;
 	pthread_mutex_t lock;
 	char *error;
 	uint64_t error_len;
@@ -67,6 +72,14 @@ struct ulver_thread {
 	ulver_stackframe *stack;
 	ulver_thread *prev;
 	ulver_thread *next;
+	// when set, the structure can be destroyed
+	uint8_t dead;
+};
+
+struct ulver_message {
+	ulver_object *value;
+	ulver_message *prev;
+	ulver_message *next;
 };
 
 struct ulver_env {
@@ -83,6 +96,7 @@ struct ulver_env {
 	ulver_object *t;
 	ulver_object *nil;
 
+	// a key mapping to the currently running thread
 	pthread_key_t thread;
 
 	pthread_rwlock_t threads_lock;
@@ -101,21 +115,25 @@ struct ulver_env {
 	ulver_object *current_package;
 
 	//  gc always runs in locked context
-        uint64_t mem;
-        uint64_t calls;
-	uint64_t max_memory;
-
-	ulver_object *gc_root;
-	uint64_t gc_freq;
+	pthread_mutex_t gc_lock;
 	uint64_t gc_rounds;
 
-	// protect them
+	pthread_mutex_t mem_lock;
+        uint64_t mem;
+        uint64_t calls;
+	uint64_t gc_freq;
+	uint64_t max_memory;
+
+
+	pthread_mutex_t gc_root_lock;
+	ulver_object *gc_root;
+
 	pthread_rwlock_t globals_lock;
 	ulver_symbolmap *globals;
 	pthread_rwlock_t funcs_lock;
 	ulver_symbolmap *funcs;
-	pthread_rwlock_t macros_lock;
-	ulver_symbolmap *macros;
+	pthread_rwlock_t channels_lock;
+	ulver_symbolmap *channels;
 };
 
 struct ulver_object {
@@ -135,6 +153,9 @@ struct ulver_object {
 	uint8_t gc_protected;
 	ulver_symbolmap *map;
 	ulver_form *form;
+	ulver_thread *thread;
+	ulver_message *msg_head;
+	ulver_message *msg_tail;
 	ulver_object *ret_next;
 };
 
@@ -231,7 +252,7 @@ int ulver_utils_eq(ulver_object *, ulver_object *);
 ulver_object *ulver_run(ulver_env *, char *);
 
 ulver_object *ulver_utils_nth(ulver_object *, uint64_t);
-void ulver_utils_print_form(ulver_form *);
+void ulver_utils_print_form(ulver_env *, ulver_form *);
 
 ulver_thread *ulver_current_thread(ulver_env *);
 

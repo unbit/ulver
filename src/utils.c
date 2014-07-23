@@ -23,11 +23,11 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
 			}
 			if (item->lambda_list) {
 				printf("(");
-				ulver_utils_print_form(item->lambda_list);
+				ulver_utils_print_form(env, item->lambda_list);
 				printf(") ");
 			}
 			if (item->form) {
-				ulver_utils_print_form(item->form);
+				ulver_utils_print_form(env, item->form);
 			}
 			else {
 				printf("<C FUNC>");
@@ -44,7 +44,7 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                 	printf("T");
                 }
 		else if (item->type == ULVER_FORM) {
-                	ulver_utils_print_form(item->form);
+                	ulver_utils_print_form(env, item->form);
         	}
 		else if (item->type == ULVER_PACKAGE) {
                         printf("#<PACKAGE %.*s>", (int) item->len, item->str);
@@ -171,12 +171,12 @@ ulver_object *ulver_utils_nth(ulver_object *list, uint64_t n) {
 	return NULL;
 }
 
-void ulver_utils_print_form(ulver_form *form) {
+void ulver_utils_print_form(ulver_env *env, ulver_form *form) {
 	if (form->type == ULVER_LIST) {
         	ulver_form *list = form->list;
                 printf("(");
 		while(list) {
-                	ulver_utils_print_form(list);
+                	ulver_utils_print_form(env, list);
 			list = list->next;
 			if (list) printf(" ");
 		}
