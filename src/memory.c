@@ -22,10 +22,6 @@ void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 static void mark_symbolmap(ulver_env *, ulver_symbolmap *);
 static void object_mark(ulver_env *env, ulver_object *uo) {
 	uo->gc_mark = 1;
-	// has an associated map ?
-	if (uo->map) {
-		mark_symbolmap(env, uo->map);
-	}
 	// is it a list ?
 	ulver_object *item = uo->list;
 	while(item) {
@@ -111,6 +107,12 @@ void ulver_gc(ulver_env *env) {
 		while(stack) {
 			// iterate all locals
 			mark_symbolmap(env, stack->locals);
+			// iterate all objects
+			ulver_object *so = stack->objects;
+			while(so) {
+				object_mark(env, so);
+				so = so->stack_next;
+			}
 			// get the return value (if any, a function could return multiple values)
 			ulver_object *ret = stack->ret;
 			while(ret) {

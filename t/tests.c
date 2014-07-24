@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
 	// tune gc frequency to 10
-	env->gc_freq = 10;
+	env->gc_freq = 1;
 	env->max_memory = 0;
 
 	tests();
@@ -222,6 +222,7 @@ void tests() {
 	test_num("(position :b (eval (quote (list :a :b (list :c :d :e) (list :c :d :e (list :a :b :c))))))", 1);
 
 	test_num("(eval (read-from-string \"(+ 3 4 10)\"))", 17);
+
 
 	test_true("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 2)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");
 	test_nil("(defpackage :ulverpackage (:export :hello))(in-package :ulverpackage)(defun hello (x) (if (> x 5)(eval (quote t))))(in-package :cl-user)(ulverpackage:hello 4)");

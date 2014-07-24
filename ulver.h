@@ -43,6 +43,7 @@ typedef struct ulver_message ulver_message;
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
 	ulver_symbolmap *locals;
+	ulver_object *objects;
 	ulver_object *ret;
 };
 
@@ -158,6 +159,7 @@ struct ulver_object {
 	ulver_message *msg_head;
 	ulver_message *msg_tail;
 	ulver_object *ret_next;
+	ulver_object *stack_next;
 	uint8_t unsafe;
 };
 

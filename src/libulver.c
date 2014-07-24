@@ -418,6 +418,7 @@ ulver_object *ulver_fun_defpackage(ulver_env *env, ulver_form *argv) {
 	if (package_name->type == ULVER_KEYWORD) {
 		name++; len--;
 	}
+	
 	// create the new package
 	ulver_object *package = ulver_package(env, name, len);
 
@@ -894,6 +895,11 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 
 	// get the current thread;
 	ulver_thread *ut = ulver_current_thread(env);	
+
+	// append the object to the stack-related ones
+	ulver_object *latest_stack_object = ut->stack->objects;
+	ut->stack->objects = uo;
+	ut->stack->objects->stack_next = latest_stack_object;
 
 	pthread_mutex_lock(&env->gc_root_lock);
 
