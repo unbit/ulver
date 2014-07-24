@@ -189,7 +189,7 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
 
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	ulver_thread *ut = ulver_current_thread(env);
-	// the thread lock is hold, let'release it amd re-acquire
+	// the thread lock is hold, let'release it and re-acquire
 	pthread_mutex_unlock(&ut->lock);
 	// now the gc could run
 
@@ -200,7 +200,19 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	ut->caller = u_func;
         ulver_stack_push(env, ut);
 	// unlock
+
+
+	// some function is "unsafe", it means it is able to modify objects
+	// at runtime. This requires heavy locking of the specific operation
+	if (!u_func->unsafe) {
+		pthread_rwlock_rdlock(&env->unsafe_lock);
+	}
+	else {
+		pthread_rwlock_wrlock(&env->unsafe_lock);
+	}
         ulver_object *ret = u_func->func(env, uf);
+	pthread_rwlock_unlock(&env->unsafe_lock);
+
         ulver_stack_pop(env, ut);
         // this ensure the returned value is not garbage collected
         ut->stack->ret = ret;
@@ -1435,6 +1447,8 @@ ulver_env *ulver_init() {
 	env->stdin = stdin;
 	env->stdout = stdout;
 	env->stderr = stderr;
+
+	pthread_rwlock_init(&env->unsafe_lock, NULL);
 
 	env->globals = ulver_symbolmap_new(env); 
 	pthread_rwlock_init(&env->globals_lock, NULL);

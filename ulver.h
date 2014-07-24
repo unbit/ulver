@@ -102,6 +102,8 @@ struct ulver_env {
 	pthread_rwlock_t threads_lock;
 	ulver_thread *threads;
 
+	pthread_rwlock_t unsafe_lock;
+
 	// protect them at every access
 	pthread_mutex_t sources_lock;
 	ulver_source *sources;
@@ -157,6 +159,7 @@ struct ulver_object {
 	ulver_message *msg_head;
 	ulver_message *msg_tail;
 	ulver_object *ret_next;
+	uint8_t unsafe;
 };
 
 struct ulver_form {
