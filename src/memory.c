@@ -29,6 +29,18 @@ static void object_mark(ulver_env *env, ulver_object *uo) {
 	}
 }
 
+static void mark_symbolmap(ulver_env *env, ulver_symbolmap *smap) {
+	uint64_t i;
+	for(i=0;i<smap->hashtable_size;i++) {
+                ulver_symbol *us = smap->hashtable[i];
+                while(us) {
+                        // mark the object and its children
+                        object_mark(env, us->value);
+                        us = us->next;
+                }
+        }
+}
+
 // this function MUST be always called with gc_lock held
 void ulver_gc(ulver_env *env) {
 
@@ -43,20 +55,14 @@ void ulver_gc(ulver_env *env) {
 	pthread_rwlock_rdlock(&env->threads_lock);
 	ulver_thread *ut = env->threads;
 	while(ut) {
+		printf("ut scan...\n");
 		// lock the thread (it could be running)
 		pthread_mutex_lock(&ut->lock);
+		printf("ready...\n");
 		ulver_stackframe *stack = ut->stack;
 		while(stack) {
 			// iterate all locals
-			ulver_symbolmap *smap = stack->locals;
-			for(i=0;i<smap->hashtable_size;i++) {
-				ulver_symbol *us = smap->hashtable[i];
-				while(us) {
-					// mark the object and its children
-					object_mark(env, us->value);
-					us = us->next;
-				}
-			}
+			mark_symbolmap(env, stack->locals);
 			// get the return value (if any, a function could return multiple values)
 			ulver_object *ret = stack->ret;
 			while(ret) {
@@ -65,10 +71,28 @@ void ulver_gc(ulver_env *env) {
 			}
 			stack = stack->prev;
 		}
+		pthread_mutex_unlock(&ut->lock);
+		ut = ut->next;
 	}
 	pthread_rwlock_unlock(&env->threads_lock);
+		printf("done...\n");
 	// the thread list has been unlocked
 	// now new threads can spawn
+
+	// now mark globals, funcs and packages
+	pthread_rwlock_wrlock(&env->globals_lock);
+	mark_symbolmap(env, env->globals);
+	pthread_rwlock_unlock(&env->globals_lock);
+
+	pthread_rwlock_wrlock(&env->funcs_lock);
+	mark_symbolmap(env, env->funcs);
+        pthread_rwlock_unlock(&env->funcs_lock);
+
+	pthread_rwlock_wrlock(&env->packages_lock);
+	mark_symbolmap(env, env->packages);
+        pthread_rwlock_unlock(&env->packages_lock);
+
+	printf("sweep\n");
 
 	// and now sweep ... (we need to lock the objects list again)
 	pthread_mutex_lock(&env->gc_root_lock);
@@ -86,6 +110,8 @@ void ulver_gc(ulver_env *env) {
 		uo = next;
 	}
 	pthread_mutex_unlock(&env->gc_root_lock);
+
+	printf("sweeped\n");
 
 	// now the gc lock can be released safely...
 }

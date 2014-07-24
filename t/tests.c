@@ -160,7 +160,10 @@ int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
 	// tune gc frequency to 10
-	//env->gc_freq = 10;
+	env->gc_freq = 10;
+	env->max_memory = 0;
+
+	printf("ok\n");
 
 	tests();
 
