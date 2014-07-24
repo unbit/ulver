@@ -163,8 +163,6 @@ int main(int argc, char **argv) {
 	env->gc_freq = 10;
 	env->max_memory = 0;
 
-	printf("ok\n");
-
 	tests();
 
 	printf("\n*** END OF TESTS ***\n");

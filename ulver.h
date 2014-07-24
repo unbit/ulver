@@ -120,7 +120,7 @@ struct ulver_env {
 	pthread_mutex_t gc_lock;
 	uint64_t gc_rounds;
 
-	pthread_mutex_t mem_lock;
+	pthread_rwlock_t mem_lock;
         uint64_t mem;
         uint64_t calls;
 	uint64_t gc_freq;
@@ -148,7 +148,6 @@ struct ulver_object {
         ulver_form *lambda_list;
         ulver_object *list;
         ulver_object *next;
-	uint64_t size;
 	ulver_object *gc_prev;
 	ulver_object *gc_next;
 	uint8_t gc_mark;

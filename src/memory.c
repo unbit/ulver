@@ -6,21 +6,26 @@ void *ulver_alloc(ulver_env *env, uint64_t len) {
 		perror("calloc()");
 		exit(1);
 	}
-	pthread_mutex_lock(&env->mem_lock);
+	pthread_rwlock_wrlock(&env->mem_lock);
 	env->mem += len;
-	pthread_mutex_unlock(&env->mem_lock);
+	pthread_rwlock_unlock(&env->mem_lock);
 	return ptr;
 }
 
 void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 	free(ptr);
-	pthread_mutex_lock(&env->mem_lock);
+	pthread_rwlock_wrlock(&env->mem_lock);
 	env->mem -= amount;
-	pthread_mutex_unlock(&env->mem_lock);
+	pthread_rwlock_unlock(&env->mem_lock);
 }
 
+static void mark_symbolmap(ulver_env *, ulver_symbolmap *);
 static void object_mark(ulver_env *env, ulver_object *uo) {
 	uo->gc_mark = 1;
+	// has an associated map ?
+	if (uo->map) {
+		mark_symbolmap(env, uo->map);
+	}
 	// is it a list ?
 	ulver_object *item = uo->list;
 	while(item) {
@@ -41,6 +46,39 @@ static void mark_symbolmap(ulver_env *env, ulver_symbolmap *smap) {
         }
 }
 
+// this must be called with threads_lock acquired
+static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
+        // we are here when the thread is marked as dead.
+        // its lock is acquired, so we are sure the gc will not run
+        // during this phase
+
+        ulver_thread *next = ut->next;
+        ulver_thread *prev = ut->prev;
+        if (next) {
+                next->prev = ut->prev;
+        }
+        if (prev) {
+                prev->next = ut->next;
+        }
+
+        if (ut == env->threads) {
+                env->threads = next;
+        }
+
+	// consume the whole stack
+	while(ut->stack) {
+                ulver_stack_pop(env, ut);
+        }
+
+        // now we can release the thread lock
+        pthread_mutex_unlock(&ut->lock);
+
+        // and free its memory
+        env->free(env, ut, sizeof(ulver_thread));
+}
+
+
+
 // this function MUST be always called with gc_lock held
 void ulver_gc(ulver_env *env) {
 
@@ -48,16 +86,27 @@ void ulver_gc(ulver_env *env) {
 
 	env->gc_rounds++;
 
+	// first search for all dead threads
+	pthread_rwlock_wrlock(&env->threads_lock);
+	ulver_thread *ut = env->threads;
+        while(ut) {
+		ulver_thread *next = ut->next;
+		if (ut->dead) {
+			ulver_thread_destroy(env, ut);
+		}
+		ut = next;
+	}
+	pthread_rwlock_unlock(&env->threads_lock);
+
 	// when the gc runs, all the threads must be locked
 	// this means that gc is a stop-the-world procedure
 
 	// iterate over threads stack frames
 	pthread_rwlock_rdlock(&env->threads_lock);
-	ulver_thread *ut = env->threads;
+	ut = env->threads;
 	while(ut) {
 		// lock the thread (it could be running)
 		pthread_mutex_lock(&ut->lock);
-		printf("ready...\n");
 		ulver_stackframe *stack = ut->stack;
 		while(stack) {
 			// iterate all locals
@@ -74,24 +123,27 @@ void ulver_gc(ulver_env *env) {
 		ut = ut->next;
 	}
 	pthread_rwlock_unlock(&env->threads_lock);
-		printf("done...\n");
 	// the thread list has been unlocked
 	// now new threads can spawn
 
 	// now mark globals, funcs and packages
-	pthread_rwlock_wrlock(&env->globals_lock);
-	mark_symbolmap(env, env->globals);
-	pthread_rwlock_unlock(&env->globals_lock);
+	if (env->globals) {
+		pthread_rwlock_wrlock(&env->globals_lock);
+		mark_symbolmap(env, env->globals);
+		pthread_rwlock_unlock(&env->globals_lock);
+	}
 
-	pthread_rwlock_wrlock(&env->funcs_lock);
-	mark_symbolmap(env, env->funcs);
-        pthread_rwlock_unlock(&env->funcs_lock);
+	if (env->funcs) {
+		pthread_rwlock_wrlock(&env->funcs_lock);
+		mark_symbolmap(env, env->funcs);
+        	pthread_rwlock_unlock(&env->funcs_lock);
+	}
 
-	pthread_rwlock_wrlock(&env->packages_lock);
-	mark_symbolmap(env, env->packages);
-        pthread_rwlock_unlock(&env->packages_lock);
-
-	printf("sweep\n");
+	if (env->packages) {
+		pthread_rwlock_wrlock(&env->packages_lock);
+		mark_symbolmap(env, env->packages);
+        	pthread_rwlock_unlock(&env->packages_lock);
+	}
 
 	// and now sweep ... (we need to lock the objects list again)
 	pthread_mutex_lock(&env->gc_root_lock);
@@ -109,8 +161,6 @@ void ulver_gc(ulver_env *env) {
 		uo = next;
 	}
 	pthread_mutex_unlock(&env->gc_root_lock);
-
-	printf("sweeped\n");
 
 	// now the gc lock can be released safely...
 }

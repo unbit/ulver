@@ -157,36 +157,6 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
         return env->nil;
 }
 
-void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
-	// we are here when the thread is marked as dead.
-	// its lock is acquired, so we are sure the gc will not run
-	// during this phase
-
-	// acquire the threads list lock
-	pthread_rwlock_wrlock(&env->threads_lock);
-	ulver_thread *next = ut->next;
-	ulver_thread *prev = ut->prev;
-	if (next) {
-		next->prev = ut->prev;
-	}
-	if (prev) {
-		prev->next = ut->next;
-	}
-
-	if (ut == env->threads) {
-		env->threads = next;
-	}
-
-	// release the threads list lock
-	pthread_rwlock_unlock(&env->threads_lock);
-
-	// now we can release the thread lock
-	pthread_mutex_unlock(&ut->lock);
-	// and free its memory
-	env->free(env, ut, sizeof(ulver_thread));
-	
-}
-
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	ulver_thread *ut = ulver_current_thread(env);
 
@@ -229,10 +199,8 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 		}
 	}
 
-	printf("relocking thread\n");
 	// and now lock again the thread, and pop the stack
 	pthread_mutex_lock(&ut->lock);
-	printf("relocked thread\n");
 
         return ret;
 }
@@ -923,7 +891,6 @@ ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
 ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	ulver_object *uo = env->alloc(env, sizeof(ulver_object));
 	uo->type = type;
-	uo->size = sizeof(ulver_object);
 
 	// get the current thread;
 	ulver_thread *ut = ulver_current_thread(env);	
@@ -966,15 +933,14 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 
 	if (uo->str) {
 		// strings memory area is zero-suffixed
-		env->free(env, uo->str, (uo->len + 1));
-		uo->size -= (uo->len + 1);
+		env->free(env, uo->str, uo->len + 1);
 	}
 
 	if (uo->map) {
 		ulver_symbolmap_destroy(env, uo->map);
 	}
 
-	env->free(env, uo, uo->size);
+	env->free(env, uo, sizeof(ulver_object));
 }
 
 ulver_object *ulver_object_from_num(ulver_env *env, int64_t n) {
@@ -993,7 +959,6 @@ ulver_object *ulver_object_from_string(ulver_env *env, char *value, uint64_t len
         ulver_object *uo = ulver_object_new(env, ULVER_STRING);
         uo->str = ulver_utils_strndup(env, value, len);
 	uo->len = len;
-	uo->size += (len + 1);
         return uo;
 }
 
@@ -1001,7 +966,6 @@ ulver_object *ulver_object_from_keyword(ulver_env *env, char *value, uint64_t le
         ulver_object *uo = ulver_object_new(env, ULVER_KEYWORD);
         uo->str = ulver_utils_strndup(env, value, len);
 	uo->len = len;
-	uo->size += (len + 1);
 	ulver_utils_toupper(uo->str, uo->len);
         return uo;
 }
@@ -1010,7 +974,6 @@ ulver_object *ulver_package(ulver_env *env, char *value, uint64_t len) {
 	ulver_object *uo = ulver_object_new(env, ULVER_PACKAGE);
         uo->str = ulver_utils_strndup(env, value, len);
         uo->len = len;
-        uo->size += (len + 1);
 	// packages must be protected from gc
 	uo->gc_protected = 1;
         ulver_utils_toupper(uo->str, uo->len);
@@ -1254,7 +1217,6 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
 	uo->form = progn;
 	uo->str = ulver_utils_strndup(env, name, len);
         uo->len = len;
-        uo->size += (len + 1);
 	uo->gc_protected = 1;
         ulver_utils_toupper(uo->str, uo->len);
         return ulver_symbolmap_set(env, env->funcs, name, len, uo, 0);
@@ -1356,6 +1318,10 @@ uint64_t ulver_destroy(ulver_env *env) {
 		return env->mem;
 	}
 
+	// mark myself as dead
+	ulver_thread *me = ulver_current_thread(env);
+	me->dead = 1;
+
 	// wait for all registered threads...
 	pthread_rwlock_rdlock(&env->threads_lock);
 	ulver_thread *ut = env->threads;
@@ -1368,7 +1334,6 @@ uint64_t ulver_destroy(ulver_env *env) {
 	pthread_rwlock_unlock(&env->threads_lock);
 	// and 
 
-
 	// clear errors (if any)
 	ulver_error(env, NULL);
 	// unprotect objects
@@ -1378,22 +1343,16 @@ uint64_t ulver_destroy(ulver_env *env) {
 		uo = uo->gc_next;
 	}
 
-	// consume the whole stack of the current thread
-	ut = ulver_current_thread(env);
-	while(ut->stack) {
-		ulver_stack_pop(env, ut);	
-	}
-
-	// unlock myself
-	pthread_mutex_unlock(&ut->lock);
-
-	// call GC without stack
-	ulver_gc(env);
-
 	// destroy globals, functions and packages
 	ulver_symbolmap_destroy(env, env->globals);
+	env->globals = NULL;
 	ulver_symbolmap_destroy(env, env->funcs);
+	env->funcs = NULL;
 	ulver_symbolmap_destroy(env, env->packages);
+	env->packages = NULL;
+
+	// call GC (no locking needed)
+	ulver_gc(env);
 
 	// destroy sources list
 	ulver_source *source = env->sources;
@@ -1432,6 +1391,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	ulver_thread *ut = (ulver_thread *) pthread_getspecific(env->thread);
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
+	ut->t = pthread_self();
 	pthread_mutex_init(&ut->lock, NULL);
 	pthread_mutex_lock(&ut->lock);
         pthread_setspecific(env->thread, (void *) ut);
@@ -1464,6 +1424,8 @@ ulver_env *ulver_init() {
 	pthread_mutex_init(&env->gc_lock, NULL);
 
 	pthread_mutex_init(&env->gc_root_lock, NULL);
+
+	pthread_rwlock_init(&env->mem_lock, NULL);
 
 	pthread_rwlock_init(&env->threads_lock, NULL);
 
@@ -1500,7 +1462,6 @@ ulver_env *ulver_init() {
 	env->max_memory = 30 * 1024 * 1024;
 	// invoke gc every 1000 calls
 	env->gc_freq = 1000;
-
 
 	// register functions
         ulver_register_fun(env, "+", ulver_fun_add);
