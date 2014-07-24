@@ -1351,12 +1351,21 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
 }
 
 uint64_t ulver_destroy(ulver_env *env) {
-	if (pthread_self() != env->creator_thread) {
+	if (!pthread_equal(pthread_self(), env->creator_thread)) {
 		fprintf(env->stderr, "only the creator thread can call ulver_destroy()\n");
 		return env->mem;
 	}
 
 	// wait for all registered threads...
+	pthread_rwlock_rdlock(&env->threads_lock);
+	ulver_thread *ut = env->threads;
+	while(ut) {
+		if (!pthread_equal(pthread_self(), ut->t)) {
+			pthread_join(ut->t, NULL);
+		} 
+		ut = ut->next;
+	}
+	pthread_rwlock_unlock(&env->threads_lock);
 	// and 
 
 
@@ -1369,22 +1378,22 @@ uint64_t ulver_destroy(ulver_env *env) {
 		uo = uo->gc_next;
 	}
 
-	// consume the whole stack of all registered threads
-	ulver_thread *ut = ulver_current_thread(env);
+	// consume the whole stack of the current thread
+	ut = ulver_current_thread(env);
 	while(ut->stack) {
 		ulver_stack_pop(env, ut);	
 	}
 
+	// unlock myself
+	pthread_mutex_unlock(&ut->lock);
+
 	// call GC without stack
 	ulver_gc(env);
 
-	// destroy globals, functions and macros
+	// destroy globals, functions and packages
 	ulver_symbolmap_destroy(env, env->globals);
 	ulver_symbolmap_destroy(env, env->funcs);
-
-	// destroy the packages map
 	ulver_symbolmap_destroy(env, env->packages);
-
 
 	// destroy sources list
 	ulver_source *source = env->sources;

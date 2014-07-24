@@ -55,7 +55,6 @@ void ulver_gc(ulver_env *env) {
 	pthread_rwlock_rdlock(&env->threads_lock);
 	ulver_thread *ut = env->threads;
 	while(ut) {
-		printf("ut scan...\n");
 		// lock the thread (it could be running)
 		pthread_mutex_lock(&ut->lock);
 		printf("ready...\n");
