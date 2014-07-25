@@ -18,6 +18,8 @@ int main(int argc, char **argv) {
 		//
 		char buf[8192];
 		for(;;) {
+			ulver_thread *ut = ulver_current_thread(env);
+			pthread_mutex_unlock(&ut->lock);
 #ifndef __WIN32__
 			char *line = readline("> ");
 			if (!line) continue;
@@ -35,6 +37,7 @@ int main(int argc, char **argv) {
 			}		
 #endif
                 	size_t len = strlen(line);
+			pthread_mutex_lock(&ut->lock);
 			ulver_form *uf = ulver_parse(env, line, len);		
 			free(line);
 			if (!uf) {

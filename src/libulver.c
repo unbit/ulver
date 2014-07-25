@@ -226,13 +226,14 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
         env->calls++;
 
 	// gc must be called only if the maximum amount of memory is reached
-	if (env->gc_freq > 0 && env->mem > env->max_memory) {
-		if (env->calls % env->gc_freq == 0) {
+	if (ut->trigger_gc || (env->gc_freq > 0 && env->mem > env->max_memory)) {
+		if (ut->trigger_gc || (env->calls % env->gc_freq == 0)) {
 			// get the gc lock
 			pthread_mutex_lock(&env->gc_lock);
 			ulver_gc(env);
 			pthread_mutex_unlock(&env->gc_lock);
 		}
+		ut->trigger_gc = 0;
 	}
 
 	// and now lock again the thread, and pop the stack
@@ -536,7 +537,8 @@ ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
-	ulver_gc(env);
+	ulver_thread *ut = ulver_current_thread(env);
+	ut->trigger_gc = 1;
 	return ulver_object_from_num(env, env->mem);
 }
 
@@ -1253,13 +1255,16 @@ void *run_new_thread(void *arg) {
         ulver_thread *ut = ulver_current_thread(env);
 	ut->t = pthread_self();
         ulver_object *ret = eval_do(env, ut, argv, 0);
+
         // the function ended
         // as the error status is per-thread, we need to make
         // something with the return value
         // ...
         // we can safely mark the thread as dead
         // (as the lock is still acquired);
+	ulver_report_error(env);
         ut->dead = 1;
+	printf("thread ended\n");
         // return something ?
         return NULL;
 }

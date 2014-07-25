@@ -77,6 +77,7 @@ struct ulver_thread {
 	ulver_thread *next;
 	// when set, the structure can be destroyed
 	uint8_t dead;
+	uint8_t trigger_gc;
 };
 
 struct ulver_message {
