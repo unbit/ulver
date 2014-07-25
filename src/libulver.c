@@ -1,5 +1,17 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_all_threads(ulver_env *env, ulver_form *argv) {
+	ulver_object *threads = ulver_object_new(env, ULVER_LIST);
+	pthread_rwlock_rdlock(&env->threads_lock);
+        ulver_thread *ut = env->threads;
+        while(ut) {
+		ulver_object_push(env, threads, env->t);
+                ut = ut->next;
+        }
+        pthread_rwlock_unlock(&env->threads_lock);
+	return threads;
+}
+
 ulver_object *ulver_fun_return(ulver_env *env, ulver_form *argv) {
 	if (argv) {
 		ulver_object *ret = ulver_eval(env, argv);
@@ -1604,6 +1616,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "values", ulver_fun_values);
 
         ulver_register_fun(env, "make-thread", ulver_fun_make_thread);
+        ulver_register_fun(env, "all-threads", ulver_fun_all_threads);
 
         ulver_register_fun(env, "sleep", ulver_fun_sleep);
 
