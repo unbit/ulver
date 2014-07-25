@@ -259,4 +259,6 @@ void tests() {
 	test_num("(setq hellonum 17)(let ((hellonum 0)) (setq hellonum 30))", 30);
 	test_num("(setq hellonum 17)(let ((hellonum 0)) (setq hellonum 30)) hellonum", 17);
 
+	test_num("(let ((z 1)) (loop (if (= z 30) (return z)) (setq z (+ z 1) ) )", 30);
+
 }
