@@ -1,5 +1,19 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "sleep requires an argument");
+        ulver_object *uo = ulver_eval(env, argv);
+        if (uo->type == ULVER_NUM) {
+		sleep(uo->n);
+        }
+        else if (uo->type == ULVER_FLOAT) {
+		usleep(uo->d * (1000*1000));
+        }
+        return env->nil;
+
+}
+
+
 static ulver_object_item *new_list_item(ulver_env *, ulver_object *);
 ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
 	if (!argv) return env->nil;
@@ -1540,6 +1554,10 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "function", ulver_fun_function);
 
         ulver_register_fun(env, "values", ulver_fun_values);
+
+        ulver_register_fun(env, "make-thread", ulver_fun_make_thread);
+
+        ulver_register_fun(env, "sleep", ulver_fun_sleep);
 
         return env;
 }
