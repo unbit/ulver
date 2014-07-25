@@ -821,7 +821,6 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
         return ulver_eval(env, argv->next);
 }
 
-// TODO check for symbol
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "setq requires two arguments");
 	if (argv->type != ULVER_SYMBOL) return ulver_error_form(env, argv, "is not a symbol");
