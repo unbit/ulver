@@ -1,56 +1,56 @@
 #include <ulver.h>
 
 void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
-	ulver_object *item = uo->list;
+	ulver_object_item *item = uo->list;
         while(item) {
-                if (item->type == ULVER_LIST) {
+                if (item->o->type == ULVER_LIST) {
                         printf("(");
-                        ulver_utils_print_list(env, item);
+                        ulver_utils_print_list(env, item->o);
                 	printf(")");
                 }
-                else if (item->type == ULVER_STRING) {
-                	printf("\"%.*s\"", (int) item->len, item->str);
+                else if (item->o->type == ULVER_STRING) {
+                	printf("\"%.*s\"", (int) item->o->len, item->o->str);
                 }
-                else if (item->type == ULVER_KEYWORD) {
-                	printf("%.*s", (int) item->len, item->str);
+                else if (item->o->type == ULVER_KEYWORD) {
+                	printf("%.*s", (int) item->o->len, item->o->str);
                 }
-		else if(item->type == ULVER_FUNC) {
-			if (item->str) {
-				printf("#<FUNCTION %.*s ", (int) item->len, item->str);
+		else if(item->o->type == ULVER_FUNC) {
+			if (item->o->str) {
+				printf("#<FUNCTION %.*s ", (int) item->o->len, item->o->str);
 			}
 			else {
 				printf("#<FUNCTION :LAMBDA ");
 			}
-			if (item->lambda_list) {
+			if (item->o->lambda_list) {
 				printf("(");
-				ulver_utils_print_form(env, item->lambda_list);
+				ulver_utils_print_form(env, item->o->lambda_list);
 				printf(") ");
 			}
-			if (item->form) {
-				ulver_utils_print_form(env, item->form);
+			if (item->o->form) {
+				ulver_utils_print_form(env, item->o->form);
 			}
 			else {
 				printf("<C FUNC>");
 			}
 			printf(">");
 		}
-                else if (item->type == ULVER_NUM) {
-                	printf("%lld", (long long int) item->n);
+                else if (item->o->type == ULVER_NUM) {
+                	printf("%lld", (long long int) item->o->n);
                 }
-                else if (item->type == ULVER_FLOAT) {
-                	printf("%f", item->d);
+                else if (item->o->type == ULVER_FLOAT) {
+                	printf("%f", item->o->d);
                 }
-                else if (item->type == ULVER_TRUE) {
+                else if (item->o->type == ULVER_TRUE) {
                 	printf("T");
                 }
-		else if (item->type == ULVER_FORM) {
-                	ulver_utils_print_form(env, item->form);
+		else if (item->o->type == ULVER_FORM) {
+                	ulver_utils_print_form(env, item->o->form);
         	}
-		else if (item->type == ULVER_PACKAGE) {
-                        printf("#<PACKAGE %.*s>", (int) item->len, item->str);
+		else if (item->o->type == ULVER_PACKAGE) {
+                        printf("#<PACKAGE %.*s>", (int) item->o->len, item->o->str);
                 }
 		else {
-                	printf("?%.*s?", (int) item->len, item->str);
+                	printf("?%.*s?", (int) item->o->len, item->o->str);
 		}
 
                 if (item->next) {
@@ -160,11 +160,11 @@ int ulver_utils_eq(ulver_object *uo1, ulver_object *uo2) {
 
 ulver_object *ulver_utils_nth(ulver_object *list, uint64_t n) {
 	uint64_t count = 0;
-	ulver_object *item = list->list;
+	ulver_object_item *item = list->list;
 	while(item) {
 		count++;
 		if (count == n) {
-			return item;
+			return item->o;
 		}	
 		item = item->next;
 	}
@@ -195,7 +195,7 @@ uint64_t ulver_utils_length(ulver_object *uo) {
 	uint64_t count = 0;
 	if (uo->type == ULVER_STRING) return uo->len;
 	if (uo->type == ULVER_LIST) {
-		ulver_object *item = uo->list;
+		ulver_object_item *item = uo->list;
 		while(item) {
 			count++;
 			item = item->next;

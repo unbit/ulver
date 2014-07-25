@@ -1,21 +1,17 @@
 #include <ulver.h>
 
+static ulver_object_item *new_list_item(ulver_env *, ulver_object *);
 ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
 	if (!argv) return env->nil;
 	ulver_thread *ut = ulver_current_thread(env);
-	ulver_object *ret = ulver_eval(env, argv);
-	if (!ret) return NULL;
-	ulver_object *first_ret = ret;
-	argv = argv->next;
+	ulver_object *multivalue = ulver_object_new(env, ULVER_MULTIVALUE);
 	while(argv) {
-		ut->stack->prev->multivalue = 1;
-		ret->ret_next = ulver_eval(env, argv);
-		if (!ret->ret_next) return NULL;
-		ret = ret->ret_next;
+		ulver_object *ret = ulver_eval(env, argv);
+		if (!ret) return NULL;
+		ulver_object_push(env, multivalue, ret);
 		argv = argv->next;
 	}
-	ut->stack->prev->multivalue = 1;
-	return first_ret;
+	return multivalue;
 }
 
 ulver_object *ulver_fun_length(ulver_env *env, ulver_form *argv) {
@@ -82,11 +78,11 @@ ulver_object *ulver_fun_subseq(ulver_env *env, ulver_form *argv) {
 		uint64_t current_item = 0;
 		uint64_t pushed_items = 0;
 		ulver_object *new_list = ulver_object_new(env, ULVER_LIST);
-		ulver_object *item = sequence->list;
+		ulver_object_item *item = sequence->list;
 		while(item) {
 			if (pushed_items >= how_many_items) break;
 			if (current_item >= start_item) {
-				ulver_object_push(env, new_list, ulver_object_copy(env, item));
+				ulver_object_push(env, new_list, ulver_object_copy(env, item->o));
 				pushed_items++;
 			}
 			current_item++;
@@ -133,9 +129,9 @@ ulver_object *ulver_fun_find(ulver_env *env, ulver_form *argv) {
 	if (!sequence) return NULL;
 	if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
 
-	ulver_object *found = sequence->list;
+	ulver_object_item *found = sequence->list;
 	while(found) {
-		if (ulver_utils_eq(found, item)) return found;
+		if (ulver_utils_eq(found->o, item)) return found->o;
 		found = found->next;
 	}	
 
@@ -151,9 +147,9 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
         if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
 
 	uint64_t count = 0;
-        ulver_object *found = sequence->list;
+        ulver_object_item *found = sequence->list;
         while(found) {
-                if (ulver_utils_eq(found, item)) return ulver_object_from_num(env, count);
+                if (ulver_utils_eq(found->o, item)) return ulver_object_from_num(env, count);
 		count++;
                 found = found->next;
         }
@@ -185,15 +181,7 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	ulver_stack_pop(env, ut);
 
 	// this ensure the returned value is not garbage collected
-	if (!ut->stack->multivalue) {
-		ut->stack->ret = ret;
-	}
-	else {
-		if (!ut->stack->ret) {
-			ut->stack->ret = ret;
-		}
-		ut->stack->multivalue = 0;
-	}
+	ut->stack->ret = ret;
 
 	// unlock the thread, now the gc can run again
 	pthread_mutex_unlock(&ut->lock);
@@ -201,7 +189,7 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
         env->calls++;
 
 	// gc must be called only if the maximum amount of memory is reached
-	if (env->mem > env->max_memory) {
+	if (env->gc_freq > 0 && env->mem > env->max_memory) {
 		if (env->calls % env->gc_freq == 0) {
 			// get the gc lock
 			pthread_mutex_lock(&env->gc_lock);
@@ -367,13 +355,13 @@ ulver_object *ulver_fun_getf(ulver_env *env, ulver_form *argv) {
         ulver_object *place = ulver_eval(env, argv->next);
         if (!place) return NULL;
 
-	ulver_object *key = plist->list;
+	ulver_object_item *key = plist->list;
 	while(key) {
-		if (ulver_utils_eq(key, place)) {
-			if (key->next) return key->next;
+		if (ulver_utils_eq(key->o, place)) {
+			if (key->next) return key->next->o;
 			return ulver_error(env, "the property list has an odd length");
 		}
-		ulver_object *value = key->next;	
+		ulver_object_item *value = key->next;	
 		if (!value) return ulver_error(env, "the property list has an odd length");
 		key = value->next;
 	}
@@ -441,16 +429,16 @@ ulver_object *ulver_fun_defpackage(ulver_env *env, ulver_form *argv) {
 		ulver_object *uo = ulver_eval_list(env, arg);
 		if (!uo) return NULL;
 		// has it a key ?
-		if (uo->list && uo->list->type == ULVER_KEYWORD) {
+		if (uo->list && uo->list->o->type == ULVER_KEYWORD) {
 			// :export ?
-			if (uo->list->len == 7 && !ulver_utils_memicmp(uo->list->str, ":export", 7)) {
+			if (uo->list->o->len == 7 && !ulver_utils_memicmp(uo->list->o->str, ":export", 7)) {
 				// now start scanning for keywords and add them
 				// to the package map
-				ulver_object *exported = uo->list->next;
+				ulver_object_item *exported = uo->list->next;
 				while(exported) {
-					if (exported->type == ULVER_KEYWORD) {
+					if (exported->o->type == ULVER_KEYWORD) {
 						// this cannot fail
-						ulver_symbolmap_set(env, package->map, exported->str+1, exported->len-1, exported, 1);
+						ulver_symbolmap_set(env, package->map, exported->o->str+1, exported->o->len-1, exported->o, 1);
 					}
 					exported = exported->next;
 				}
@@ -693,7 +681,7 @@ ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
 	if (!uo->list) {
 		return env->nil;
 	}
-	return uo->list;
+	return uo->list->o;
 }
 
 ulver_object *ulver_fun_atom(ulver_env *env, ulver_form *argv) {
@@ -711,9 +699,9 @@ ulver_object *ulver_fun_cdr(ulver_env *env, ulver_form *argv) {
 	if (!uo->list) return env->nil;
 	if (!uo->list->next) return env->nil;
 	ulver_object *cdr = ulver_object_new(env, ULVER_LIST);
-	ulver_object *item = uo->list->next;
+	ulver_object_item *item = uo->list->next;
 	while(item) {
-		ulver_object_push(env, cdr, ulver_object_copy(env, item));
+		ulver_object_push(env, cdr, ulver_object_copy(env, item->o));
 		item = item->next;
 	}
 	return cdr;
@@ -891,9 +879,9 @@ ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
 	new->lambda_list = uo->lambda_list;
 	new->form = uo->form;
 	if (uo->list) {
-		ulver_object *item = uo->list;
+		ulver_object_item *item = uo->list;
 		while(item) {
-			ulver_object_push(env, new, ulver_object_copy(env, item));
+			ulver_object_push(env, new, ulver_object_copy(env, item->o));
 			item = item->next;
 		}
 	}
@@ -907,7 +895,7 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	// get the current thread;
 	ulver_thread *ut = ulver_current_thread(env);	
 
-	// append the object to the stack-related ones (only if the stack is not the first one)
+	// append the object to the stack-related ones
 	ulver_object *latest_stack_object = ut->stack->objects;
 	ut->stack->objects = uo;
 	ut->stack->objects->stack_next = latest_stack_object;
@@ -955,6 +943,14 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 
 	if (uo->map) {
 		ulver_symbolmap_destroy(env, uo->map);
+	}
+
+	// free items
+	ulver_object_item *item = uo->list;
+	while(item) {
+		ulver_object_item *next = item->next;
+		env->free(env, item, sizeof(ulver_object_item));
+		item = next;
 	}
 
 	env->free(env, uo, sizeof(ulver_object));
@@ -1056,15 +1052,21 @@ ulver_object *ulver_object_from_symbol(ulver_env *env, ulver_form *uf) {
 	return us->value;
 }
 
+static ulver_object_item *new_list_item(ulver_env *env, ulver_object *uo) {
+	ulver_object_item *item = env->alloc(env, sizeof(ulver_object_item));
+	item->o = uo;	
+	return item;
+}
+
 ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object *uo) {
-	ulver_object *next = list->list;
+	ulver_object_item *next = list->list;
 	if (!next) {
-		list->list = uo;
+		list->list = new_list_item(env, uo);
 		return uo;
 	}	
 	while(next) {
 		if (!next->next) {
-			next->next = uo;
+			next->next = new_list_item(env, uo);
 			break;
 		}
 		next = next->next;	

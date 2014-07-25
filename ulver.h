@@ -28,10 +28,12 @@
 #define ULVER_STREAM 9
 #define ULVER_THREAD 10
 #define ULVER_CHANNEL 11
+#define ULVER_MULTIVALUE 11
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
 typedef struct ulver_object ulver_object;
+typedef struct ulver_object_item ulver_object_item;
 typedef struct ulver_form ulver_form;
 typedef struct ulver_symbol ulver_symbol;
 typedef struct ulver_stackframe ulver_stackframe;
@@ -45,7 +47,6 @@ struct ulver_stackframe {
 	ulver_symbolmap *locals;
 	ulver_object *objects;
 	ulver_object *ret;
-	uint8_t multivalue;
 };
 
 struct ulver_source {
@@ -140,6 +141,11 @@ struct ulver_env {
 	ulver_symbolmap *channels;
 };
 
+struct ulver_object_item {
+	ulver_object *o;
+	ulver_object_item *next;	
+};
+
 struct ulver_object {
         uint8_t type; // list, func, num, string
         uint64_t len;
@@ -148,8 +154,7 @@ struct ulver_object {
         double d;
         ulver_object *(*func)(ulver_env *, ulver_form *);
         ulver_form *lambda_list;
-        ulver_object *list;
-        ulver_object *next;
+        ulver_object_item *list;
 	ulver_object *gc_prev;
 	ulver_object *gc_next;
 	uint8_t gc_mark;
@@ -159,7 +164,6 @@ struct ulver_object {
 	ulver_thread *thread;
 	ulver_message *msg_head;
 	ulver_message *msg_tail;
-	ulver_object *ret_next;
 	ulver_object *stack_next;
 	uint8_t unsafe;
 };

@@ -27,9 +27,9 @@ static void object_mark(ulver_env *env, ulver_object *uo) {
 		mark_symbolmap(env, uo->map);
 	}
 	// is it a list ?
-	ulver_object *item = uo->list;
+	ulver_object_item *item = uo->list;
 	while(item) {
-		object_mark(env, item);
+		object_mark(env, item->o);
 		item = item->next;
 	}
 }
@@ -118,10 +118,8 @@ void ulver_gc(ulver_env *env) {
 				so = so->stack_next;
 			}
 			// get the return value (if any, a function could return multiple values)
-			ulver_object *ret = stack->ret;
-			while(ret) {
-				object_mark(env, ret);
-				ret = ret->ret_next;
+			if (stack->ret) {
+				object_mark(env, stack->ret);
 			}
 			stack = stack->prev;
 		}

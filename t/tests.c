@@ -63,32 +63,38 @@ void test_two_nums(char *s, int64_t n, int64_t n2) {
                 return;
         }
 
-	if (!ret->ret_next) {
+	if (ret->type != ULVER_MULTIVALUE) {
+		printf("[FAILED] test for %s: did not return a multivalue object\n", s);
+                tests_failed++;
+                return;
+	}
+
+	if (!ret->list || !ret->list->next) {
 		printf("[FAILED] test for %s: did not returned 2 values\n", s);
 		tests_failed++;
                 return;
 	}
 
-        if (ret->type != ULVER_NUM) {
+        if (ret->list->o->type != ULVER_NUM) {
                 printf("[FAILED] test for %s: object is not a number\n", s);
                 tests_failed++;
                 return;
         }
 
-        if (ret->n != n) {
-                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n);
+        if (ret->list->o->n != n) {
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->list->o->n, (long long int) n);
                 tests_failed++;
                 return;
         }
 
-	if (ret->ret_next->type != ULVER_NUM) {
+	if (ret->list->next->o->type != ULVER_NUM) {
                 printf("[FAILED] test for %s: second object is not a number\n", s);
                 tests_failed++;
                 return;
         }
 
-        if (ret->ret_next->n != n2) {
-                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->n, (long long int) n2);
+        if (ret->list->next->o->n != n2) {
+                printf("[FAILED] test for %s: %lld is not %lld\n", s, (long long int) ret->list->next->o->n, (long long int) n2);
                 tests_failed++;
                 return;
         }
@@ -159,11 +165,12 @@ void test_nil(char *s) {
 int main(int argc, char **argv) {
 	printf("*** TESTING ulver ***\n\n");
 	env = ulver_init();
-	// tune gc frequency to 10
-	env->gc_freq = 1;
 	env->max_memory = 0;
-
-	tests();
+	uint64_t i;
+	for(i=0;i<100;i++) {
+		env->gc_freq = i;
+		tests();
+	}
 
 	printf("\n*** END OF TESTS ***\n");
 	printf("SUCCESSFULL TESTS: %llu\n", (unsigned long long) tests_successfull);
