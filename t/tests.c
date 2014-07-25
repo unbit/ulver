@@ -255,4 +255,8 @@ void tests() {
 
 	test_two_nums("(let ((a 3) (b 10)) (values (+ a b 17) (- (* b 2) 3)))", 30, 17);
 
+	test_num("(setq hellonum 30)(let ((hellonum 2)) (+ hellonum 15))", 17);
+	test_num("(setq hellonum 17)(let ((hellonum 0)) (setq hellonum 30))", 30);
+	test_num("(setq hellonum 17)(let ((hellonum 0)) (setq hellonum 30)) hellonum", 17);
+
 }

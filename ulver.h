@@ -166,6 +166,7 @@ struct ulver_object {
 	ulver_message *msg_tail;
 	ulver_object *stack_next;
 	uint8_t unsafe;
+	uint8_t _return;
 };
 
 struct ulver_form {

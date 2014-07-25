@@ -1,5 +1,29 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_return(ulver_env *env, ulver_form *argv) {
+	if (argv) {
+		ulver_object *ret = ulver_eval(env, argv);
+		ret->_return = 1;
+		return ret;
+	}
+	return env->nil;
+}
+
+ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
+	for(;;) {
+		ulver_form *arg = argv;
+		while(arg) {
+			ulver_object *ret = ulver_eval(env, arg);
+			if (!ret) return NULL;
+			if (ret->_return) return ret;
+			arg = arg->next;
+		}
+	}
+        return NULL;
+
+}
+
+
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_object *uo = ulver_eval(env, argv);
@@ -12,7 +36,6 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
         return env->nil;
 
 }
-
 
 static ulver_object_item *new_list_item(ulver_env *, ulver_object *);
 ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
@@ -787,9 +810,23 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 // TODO check for symbol
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, "setq requires two arguments");
+	if (argv->type != ULVER_SYMBOL) return ulver_error_form(env, argv, "is not a symbol");
 	ulver_object *uo = ulver_eval(env, argv->next);
 	if (!uo) return NULL;
+	// first of all check if the local variable is already defined
+	ulver_thread *ut = ulver_current_thread(env);
+        ulver_stackframe *stack = ut->stack;
+        while(stack) {
+                ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, argv->value, argv->len, 0);
+                if (us) {
+			us->value = uo;
+			return uo;
+		}
+                stack = stack->prev;
+        }
+	pthread_rwlock_wrlock(&env->globals_lock);
 	ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 0);
+	pthread_rwlock_unlock(&env->globals_lock);
 	if (!us) return NULL;
 	return uo;
 }
@@ -1252,7 +1289,10 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
         uo->len = len;
 	uo->gc_protected = 1;
         ulver_utils_toupper(uo->str, uo->len);
-        return ulver_symbolmap_set(env, env->funcs, name, len, uo, 0);
+	pthread_rwlock_wrlock(&env->funcs_lock);
+        ulver_symbol *us = ulver_symbolmap_set(env, env->funcs, name, len, uo, 0);
+	pthread_rwlock_unlock(&env->funcs_lock);
+	return us;
 }
 
 ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*func)(ulver_env *, ulver_form *)) {
@@ -1262,7 +1302,10 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		return ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
+		pthread_rwlock_wrlock(&env->globals_lock);
+		ulver_symbol *us = ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
+		pthread_rwlock_wrlock(&env->globals_lock);
+		return us;
 	}	
 	ulver_thread *ut = ulver_current_thread(env);
 	return ulver_symbolmap_set(env, ut->stack->locals, name, len, uo, 0);
@@ -1558,6 +1601,10 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "make-thread", ulver_fun_make_thread);
 
         ulver_register_fun(env, "sleep", ulver_fun_sleep);
+
+        ulver_register_fun(env, "loop", ulver_fun_loop);
+
+        ulver_register_fun(env, "return", ulver_fun_return);
 
         return env;
 }
