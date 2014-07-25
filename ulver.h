@@ -45,6 +45,7 @@ struct ulver_stackframe {
 	ulver_symbolmap *locals;
 	ulver_object *objects;
 	ulver_object *ret;
+	uint8_t multivalue;
 };
 
 struct ulver_source {

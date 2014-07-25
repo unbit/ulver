@@ -22,6 +22,10 @@ void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 static void mark_symbolmap(ulver_env *, ulver_symbolmap *);
 static void object_mark(ulver_env *env, ulver_object *uo) {
 	uo->gc_mark = 1;
+	// has a map ?
+	if (uo->map) {
+		mark_symbolmap(env, uo->map);
+	}
 	// is it a list ?
 	ulver_object *item = uo->list;
 	while(item) {

@@ -2,17 +2,20 @@
 
 ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
 	if (!argv) return env->nil;
+	ulver_thread *ut = ulver_current_thread(env);
 	ulver_object *ret = ulver_eval(env, argv);
 	if (!ret) return NULL;
+	ulver_object *first_ret = ret;
 	argv = argv->next;
-	ulver_object *ret2 = ret;
 	while(argv) {
-		ret2->ret_next = ulver_eval(env, argv);
-		if (!ret2->ret_next) return NULL;
-		ret2 = ret2->ret_next;
+		ut->stack->prev->multivalue = 1;
+		ret->ret_next = ulver_eval(env, argv);
+		if (!ret->ret_next) return NULL;
+		ret = ret->ret_next;
 		argv = argv->next;
 	}
-	return ret;
+	ut->stack->prev->multivalue = 1;
+	return first_ret;
 }
 
 ulver_object *ulver_fun_length(ulver_env *env, ulver_form *argv) {
@@ -182,7 +185,15 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	ulver_stack_pop(env, ut);
 
 	// this ensure the returned value is not garbage collected
-	ut->stack->ret = ret;
+	if (!ut->stack->multivalue) {
+		ut->stack->ret = ret;
+	}
+	else {
+		if (!ut->stack->ret) {
+			ut->stack->ret = ret;
+		}
+		ut->stack->multivalue = 0;
+	}
 
 	// unlock the thread, now the gc can run again
 	pthread_mutex_unlock(&ut->lock);
@@ -439,7 +450,7 @@ ulver_object *ulver_fun_defpackage(ulver_env *env, ulver_form *argv) {
 				while(exported) {
 					if (exported->type == ULVER_KEYWORD) {
 						// this cannot fail
-						ulver_symbolmap_set(env, package->map, exported->str+1, exported->len-1, env->nil, 1);
+						ulver_symbolmap_set(env, package->map, exported->str+1, exported->len-1, exported, 1);
 					}
 					exported = exported->next;
 				}
@@ -896,7 +907,7 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	// get the current thread;
 	ulver_thread *ut = ulver_current_thread(env);	
 
-	// append the object to the stack-related ones
+	// append the object to the stack-related ones (only if the stack is not the first one)
 	ulver_object *latest_stack_object = ut->stack->objects;
 	ut->stack->objects = uo;
 	ut->stack->objects->stack_next = latest_stack_object;

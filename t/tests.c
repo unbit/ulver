@@ -242,6 +242,10 @@ void tests() {
 
 	test_num("(defun additioner (x) \"i am the doc for additioner\" (+ x x))(additioner 15)", 30);
 
+	test_two_nums("(values 4 5)", 4, 5);
+	test_two_nums("(values 4 (+ 1 1 1 1 1))", 4, 5);
 	test_two_nums("(values (+ 1 2)(+ 3 4))", 3, 7);
+
+	test_two_nums("(let ((a 3) (b 10)) (values (+ a b 17) (- (* b 2) 3)))", 30, 17);
 
 }

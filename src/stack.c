@@ -62,8 +62,6 @@ static void symbolmap_resize(ulver_env *env, ulver_symbolmap *smap) {
 
 static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint8_t no_package) {
 
-	ulver_thread *ut = ulver_current_thread(env);
-	if (!ut) return NULL;
 	if (no_package) return NULL;
 
 	char *new_name = NULL;
@@ -83,6 +81,13 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
                 // the package exists, does it export the symbol ?
                 ulver_symbol *us = ulver_symbolmap_get(env, package->value->map, colon + 1, *len - ((colon + 1) - name), 1);
                 if (!us) {
+			uint64_t i;
+        		for(i=0;i<package->value->map->hashtable_size;i++) {
+                		ulver_symbol *us = package->value->map->hashtable[i];
+                		while(us) {
+                        		us = us->next;
+                		}
+        		}	
                         ulver_error(env, "package %.*s does not export symbol %.*s", colon-name, name, *len - ((colon + 1) - name), colon + 1);
 			*len = 0;
                         return NULL;
