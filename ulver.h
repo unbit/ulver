@@ -67,7 +67,7 @@ struct ulver_source {
 
 struct ulver_thread {
 	pthread_t t;
-	pthread_mutex_t lock;
+	//pthread_mutex_t lock;
 	char *error;
 	uint64_t error_len;
 	uint64_t error_buf_len;
@@ -124,7 +124,7 @@ struct ulver_env {
 	pthread_mutex_t gc_lock;
 	uint64_t gc_rounds;
 
-	pthread_rwlock_t mem_lock;
+	pthread_mutex_t mem_lock;
         uint64_t mem;
         uint64_t calls;
 	uint64_t gc_freq;
@@ -215,7 +215,7 @@ ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
-ulver_symbol *ulver_symbol_get(ulver_env *, char *, uint64_t);
+ulver_object *ulver_symbol_get(ulver_env *, char *, uint64_t);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);
 ulver_object *ulver_eval_list(ulver_env *, ulver_form *);
 ulver_object *ulver_object_copy(ulver_env *, ulver_object *);

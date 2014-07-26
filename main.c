@@ -12,6 +12,8 @@ int main(int argc, char **argv) {
 	atexit(cleanup);
 
         ulver_env *env = ulver_init();
+	env->max_memory = 0;
+	env->gc_freq = 100000;
 
 	// REPL ?
 	if (argc < 2) {
@@ -19,11 +21,13 @@ int main(int argc, char **argv) {
 		char buf[8192];
 		for(;;) {
 			ulver_thread *ut = ulver_current_thread(env);
-			pthread_mutex_unlock(&ut->lock);
+			//pthread_mutex_unlock(&ut->lock);
+			pthread_rwlock_unlock(&env->unsafe_lock);
 #ifndef __WIN32__
 			char *line = readline("> ");
 			if (!line) continue;
-			add_history(line);
+			if (strlen(line) > 0)
+				add_history(line);
 #else
 			printf("> ");
 			char *line = malloc(8192);
@@ -37,7 +41,8 @@ int main(int argc, char **argv) {
 			}		
 #endif
                 	size_t len = strlen(line);
-			pthread_mutex_lock(&ut->lock);
+			pthread_rwlock_rdlock(&env->unsafe_lock);
+			//pthread_mutex_lock(&ut->lock);
 			ulver_form *uf = ulver_parse(env, line, len);		
 			free(line);
 			if (!uf) {

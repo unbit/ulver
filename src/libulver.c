@@ -32,18 +32,26 @@ ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
 		}
 	}
         return NULL;
-
 }
-
 
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_object *uo = ulver_eval(env, argv);
         if (uo->type == ULVER_NUM) {
+		//pthread_mutex_unlock(&ut->lock);
+		pthread_rwlock_unlock(&env->unsafe_lock);
+		printf("sleeping\n");
 		sleep(uo->n);
+		printf("slept\n");
+		pthread_rwlock_rdlock(&env->unsafe_lock);
+		//pthread_mutex_lock(&ut->lock);
         }
         else if (uo->type == ULVER_FLOAT) {
+		//pthread_mutex_unlock(&ut->lock);
+		pthread_rwlock_unlock(&env->unsafe_lock);
 		usleep(uo->d * (1000*1000));
+		pthread_rwlock_rdlock(&env->unsafe_lock);
+		//pthread_mutex_lock(&ut->lock);
         }
         return env->nil;
 
@@ -213,6 +221,9 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	// add a new stack frame
         ulver_stack_push(env, ut);
 
+/*
+	pthread_rwlock_unlock(&env->unsafe_lock);
+
 	// some function is "unsafe", it means it is able to modify objects
 	// at runtime. This requires heavy locking of the specific operation
 	if (!u_func->unsafe) {
@@ -221,35 +232,54 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	else {
 		pthread_rwlock_wrlock(&env->unsafe_lock);
 	}
+*/
 
 	// call the function
         ulver_object *ret = u_func->func(env, uf);
 
-	pthread_rwlock_unlock(&env->unsafe_lock);
+	//pthread_rwlock_unlock(&env->unsafe_lock);
 
 	ulver_stack_pop(env, ut);
 
 	// this ensure the returned value is not garbage collected
 	ut->stack->ret = ret;
 
+	//pthread_rwlock_unlock(&env->unsafe_lock);
+
 	// unlock the thread, now the gc can run again
-	pthread_mutex_unlock(&ut->lock);
+	//pthread_mutex_unlock(&ut->lock);
 
+	pthread_rwlock_unlock(&env->unsafe_lock);
+
+	uint8_t run_gc = 0;
+
+	pthread_mutex_lock(&env->mem_lock);
         env->calls++;
-
 	// gc must be called only if the maximum amount of memory is reached
 	if (ut->trigger_gc || (env->gc_freq > 0 && env->mem > env->max_memory)) {
-		if (ut->trigger_gc || (env->calls % env->gc_freq == 0)) {
-			// get the gc lock
-			pthread_mutex_lock(&env->gc_lock);
-			ulver_gc(env);
-			pthread_mutex_unlock(&env->gc_lock);
+		if (ut->trigger_gc || ((env->calls % env->gc_freq) == 0)) {
+			run_gc = 1;
 		}
+	}
+	pthread_mutex_unlock(&env->mem_lock);
+
+	if (run_gc) {
+		// get the gc lock
+		pthread_rwlock_wrlock(&env->unsafe_lock);
+		//pthread_mutex_lock(&env->gc_lock);
+		ulver_gc(env);
+		pthread_rwlock_unlock(&env->unsafe_lock);
+		//pthread_mutex_unlock(&ut->lock);
+		//pthread_mutex_unlock(&env->gc_lock);
 		ut->trigger_gc = 0;
 	}
 
 	// and now lock again the thread, and pop the stack
-	pthread_mutex_lock(&ut->lock);
+	//pthread_mutex_lock(&ut->lock);
+
+	//pthread_rwlock_rdlock(&env->unsafe_lock);
+
+	pthread_rwlock_rdlock(&env->unsafe_lock);
 
         return ret;
 }
@@ -554,6 +584,27 @@ ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
 	return ulver_object_from_num(env, env->mem);
 }
 
+ulver_object *ulver_fun_mod(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, "mod requires two arguments");
+	ulver_object *uo1 = ulver_eval(env, argv);
+	if (!uo1) return NULL;
+	int64_t n1 = 0;
+	if (uo1->type == ULVER_NUM) n1 = uo1->n;
+	else if (uo1->type == ULVER_FLOAT) n1 = uo1->d;	
+	else return ulver_error_form(env, argv, "is not a number");
+
+	ulver_object *uo2 = ulver_eval(env, argv->next);
+	if (!uo2) return NULL;
+	int64_t n2 = 0;
+        if (uo2->type == ULVER_NUM) n2 = uo2->n;
+        else if (uo2->type == ULVER_FLOAT) n2 = uo2->d;
+        else return ulver_error_form(env, argv->next, "is not a number");
+
+	if (n2 == 0) return ulver_error(env, "division by zero");
+	
+        return ulver_object_from_num(env, n1 % n2);
+}
+
 ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
         int64_t n = 0;
 	double d = 0.0;
@@ -578,7 +629,6 @@ ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
         	return ulver_object_from_float(env, d+n);
 	}
         return ulver_object_from_num(env, n);
-	
 }
 
 ulver_object *ulver_fun_sub(ulver_env *env, ulver_form *argv) {
@@ -1069,9 +1119,9 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 	ulver_thread *ut = ulver_current_thread(env);
         // is it a global var ?
         if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		pthread_rwlock_wrlock(&env->packages_lock);
+		pthread_rwlock_wrlock(&env->globals_lock);
                 int ret = ulver_symbolmap_delete(env, env->globals, name, len, 0);
-		pthread_rwlock_unlock(&env->packages_lock);
+		pthread_rwlock_unlock(&env->globals_lock);
 		return ret;
         }
         ulver_stackframe *stack = ut->stack;
@@ -1081,39 +1131,42 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 		}
                 stack = stack->prev;
         }
-	pthread_rwlock_wrlock(&env->packages_lock);
+	pthread_rwlock_wrlock(&env->globals_lock);
         int ret = ulver_symbolmap_delete(env, env->globals, name, len, 0);
-	pthread_rwlock_unlock(&env->packages_lock);
+	pthread_rwlock_unlock(&env->globals_lock);
 	return ret;
 }
 
-ulver_symbol *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
+ulver_object *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
+	ulver_object *ret = NULL; 
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
 		pthread_rwlock_rdlock(&env->globals_lock);
 		ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
+		if (us) ret = us->value;
 		pthread_rwlock_unlock(&env->globals_lock);
-		return us;
+		return ret;
 	}	
 	ulver_thread *ut = ulver_current_thread(env);
 	ulver_stackframe *stack = ut->stack;
 	while(stack) {
 		ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, name, len, 0);
-		if (us) return us;
+		if (us) return us->value;
 		stack = stack->prev;
 	}
 	pthread_rwlock_rdlock(&env->globals_lock);
 	ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
+	if (us) ret = us->value;
 	pthread_rwlock_unlock(&env->globals_lock);
-	return us;
+	return ret;
 }
 
 ulver_object *ulver_object_from_symbol(ulver_env *env, ulver_form *uf) {
-	ulver_symbol *us = ulver_symbol_get(env, uf->value, uf->len);
-	if (!us) {
+	ulver_object *uo = ulver_symbol_get(env, uf->value, uf->len);
+	if (!uo) {
 		return ulver_error_form(env, uf, "variable not bound"); 
 	}
-	return us->value;
+	return uo;
 }
 
 static ulver_object_item *new_list_item(ulver_env *env, ulver_object *uo) {
@@ -1200,10 +1253,16 @@ fatal:
 
 static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, uint8_t as_list) {
 	ulver_object *ret = NULL;
+	//pthread_rwlock_unlock(&env->unsafe_lock);
+
+	//pthread_rwlock_rdlock(&env->unsafe_lock);
 	switch(uf->type) {
 		// if it is a list, get the first member and eval it
 		case ULVER_LIST:
-			if (!as_list) return ulver_call(env, uf->list);
+			if (!as_list) {
+				ret = ulver_call(env, uf->list);
+				break;
+			}
 			ret = ulver_object_new(env, ULVER_LIST);
 			ulver_form *list = uf->list;
 			while(list) {
@@ -1218,19 +1277,24 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 			break;
 		// if it is a symbol, get its value
 		case ULVER_SYMBOL:
-			return ulver_object_from_symbol(env, uf);
+			ret = ulver_object_from_symbol(env, uf);
+			break;
 		// if it is a number, build a new object
 		case ULVER_NUM:
-			return ulver_object_from_num(env, strtoll(uf->value, NULL, 10));
+			ret = ulver_object_from_num(env, strtoll(uf->value, NULL, 10));
+			break;
 		// if it is a float, build a new object
 		case ULVER_FLOAT:
-			return ulver_object_from_float(env, strtod(uf->value, NULL));
+			ret = ulver_object_from_float(env, strtod(uf->value, NULL));
+			break;
 		// if it is a string, build a new object
 		case ULVER_STRING:
-			return ulver_object_from_string(env, uf->value, uf->len);
+			ret = ulver_object_from_string(env, uf->value, uf->len);
+			break;
 		// if it is a keyword, build a new object
 		case ULVER_KEYWORD:
-			return ulver_object_from_keyword(env, uf->value, uf->len);
+			ret = ulver_object_from_keyword(env, uf->value, uf->len);
+			break;
 		default:
 			printf("unknown object\n");
 			break;
@@ -1281,6 +1345,7 @@ void *run_new_thread(void *arg) {
 }
 
 ulver_object *ulver_fun_make_thread(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "make-thread requires an argument");	
         pthread_t t;
 	struct ulver_thread_args *uta = malloc(sizeof(struct ulver_thread_args));;
 	if (!uta) {
@@ -1316,14 +1381,14 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 }
 
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
+	ulver_thread *ut = ulver_current_thread(env);
 	// is it a global var ?
-	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
+	if ((len > 2 && name[0] == '*' && name[len-1] == '*') || ut->stack->prev == NULL) {
 		pthread_rwlock_wrlock(&env->globals_lock);
 		ulver_symbol *us = ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
 		pthread_rwlock_wrlock(&env->globals_lock);
 		return us;
 	}	
-	ulver_thread *ut = ulver_current_thread(env);
 	return ulver_symbolmap_set(env, ut->stack->locals, name, len, uo, 0);
 }
 
@@ -1484,15 +1549,18 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
 	ut->t = pthread_self();
-	pthread_mutex_init(&ut->lock, NULL);
-	pthread_mutex_lock(&ut->lock);
+	//pthread_mutex_init(&ut->lock, NULL);
+	//pthread_mutex_lock(&ut->lock);
         pthread_setspecific(env->thread, (void *) ut);
         ulver_stack_push(env, ut);
 	pthread_rwlock_wrlock(&env->threads_lock);
 	ulver_thread *head = env->threads;
+	if (head) head->prev = ut;
 	env->threads = ut;
 	ut->next = head;
 	pthread_rwlock_unlock(&env->threads_lock);
+
+	pthread_rwlock_rdlock(&env->unsafe_lock);
         return ut;
 }
 
@@ -1517,7 +1585,7 @@ ulver_env *ulver_init() {
 
 	pthread_mutex_init(&env->gc_root_lock, NULL);
 
-	pthread_rwlock_init(&env->mem_lock, NULL);
+	pthread_mutex_init(&env->mem_lock, NULL);
 
 	pthread_rwlock_init(&env->threads_lock, NULL);
 
@@ -1561,6 +1629,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "*", ulver_fun_mul);
         ulver_register_fun(env, ">", ulver_fun_higher);
         ulver_register_fun(env, "=", ulver_fun_equal);
+        ulver_register_fun(env, "mod", ulver_fun_mod);
         ulver_register_fun(env, "print", ulver_fun_print);
         ulver_register_fun(env, "parse-integer", ulver_fun_parse_integer);
         ulver_register_fun(env, "setq", ulver_fun_setq);
