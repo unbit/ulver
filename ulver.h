@@ -62,6 +62,8 @@ struct ulver_source {
 	ulver_form *form_list_current;
 	ulver_form *form_new;
 	uint8_t is_doublequoted;
+	uint8_t is_escaped;
+	uint8_t is_comment;
 };
 
 
@@ -93,12 +95,12 @@ struct ulver_env {
 	void *(*alloc)(ulver_env *, uint64_t);
 	void (*free)(ulver_env *, void *, uint64_t);
 
-	FILE *stdin;
 	FILE *stdout;
 	FILE *stderr;
 
 	ulver_object *t;
 	ulver_object *nil;
+	ulver_object *stdin;
 
 	// a key mapping to the currently running thread
 	pthread_key_t thread;
@@ -168,6 +170,8 @@ struct ulver_object {
 	ulver_object *stack_next;
 	uint8_t unsafe;
 	uint8_t _return;
+	int fd;
+	uint8_t closed;
 };
 
 struct ulver_form {
@@ -214,6 +218,7 @@ ulver_object *ulver_object_from_num(ulver_env *, int64_t);
 ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
+ulver_object *ulver_object_from_fd(ulver_env *, int);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
 ulver_object *ulver_symbol_get(ulver_env *, char *, uint64_t);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);

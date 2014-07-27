@@ -49,6 +49,9 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
 		else if (item->o->type == ULVER_PACKAGE) {
                         printf("#<PACKAGE %.*s>", (int) item->o->len, item->o->str);
                 }
+		else if (item->o->type == ULVER_STREAM) {
+                        printf("#<STREAM fd:%d>", item->o->fd);
+                }
 		else {
                 	printf("?%.*s?", (int) item->o->len, item->o->str);
 		}

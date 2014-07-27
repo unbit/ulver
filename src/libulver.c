@@ -165,6 +165,7 @@ ulver_object *ulver_fun_read_from_string(ulver_env *env, ulver_form *argv) {
 
 ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
 	char buf[8192];
+/*
         if (fgets(buf, 8192, env->stdin)) {
                 size_t len = strlen(buf);
                 if (buf[len-1] == '\n') len--;
@@ -174,6 +175,7 @@ ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
         	form->form = uf;
         	return form;
         }
+*/
         return ulver_error(env, "EOF");
 }
 
@@ -529,6 +531,32 @@ next:
 	}
 
 	return package;
+}
+
+ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "open requires an argument");
+        ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string");
+	int mode = O_RDONLY;
+	if (argv->next) {
+		ulver_form *direction = argv->next;
+		if (direction->type != ULVER_KEYWORD) return ulver_error_form(env, direction, "must be a keyword");
+		if (direction->len == 6 && !ulver_utils_memicmp(direction->value, ":input", 6)) {
+			mode = O_RDONLY;
+		}
+		else if (direction->len == 7 && !ulver_utils_memicmp(direction->value, ":output", 7)) {
+			mode = O_WRONLY;
+		}
+		else if (direction->len == 3 && !ulver_utils_memicmp(direction->value, ":io", 3)) {
+			mode = O_WRONLY;
+		}
+	}
+	int fd = open(uo->str, mode);
+	if (fd < 0) {
+		return ulver_error(env, "unable to open file");
+	}
+        return ulver_object_from_fd(env, fd);
 }
 
 ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
@@ -906,12 +934,20 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
 
 // TODO find a way to better manage memory
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
+	ulver_object *stream = env->stdin;
+	if (argv) {
+		stream = ulver_eval(env, argv);
+		if (!stream) return NULL;
+		if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+	}
+/*
 	char buf[8192];
 	if (fgets(buf, 8192, env->stdin)) {
 		size_t len = strlen(buf);
 		if (buf[len-1] == '\n') len--;
 		return ulver_object_from_string(env, buf, len);
 	}
+*/
 	return NULL;
 }
 
@@ -962,6 +998,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_PACKAGE) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
+	else if (uo->type == ULVER_STREAM) {
+        	printf("#<STREAM fd:%d>", uo->fd);
+        }
 	else if (uo->type == ULVER_FORM) {
 		printf("\n");
 		ulver_utils_print_form(env, uo->form);
@@ -1059,6 +1098,12 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 		ulver_symbolmap_destroy(env, uo->map);
 	}
 
+	if (uo->type == ULVER_STREAM) {
+		if (!uo->closed) {
+			close(uo->fd);
+		}
+	}
+
 	// free items
 	ulver_object_item *item = uo->list;
 	while(item) {
@@ -1079,6 +1124,12 @@ ulver_object *ulver_object_from_num(ulver_env *env, int64_t n) {
 ulver_object *ulver_object_from_float(ulver_env *env, double n) {
         ulver_object *uo = ulver_object_new(env, ULVER_FLOAT);
         uo->d = n;
+        return uo;
+}
+
+ulver_object *ulver_object_from_fd(ulver_env *env, int fd) {
+        ulver_object *uo = ulver_object_new(env, ULVER_STREAM);
+	uo->fd = fd;
         return uo;
 }
 
@@ -1577,7 +1628,6 @@ ulver_env *ulver_init() {
         env->alloc = ulver_alloc;
         env->free = ulver_free;
 
-	env->stdin = stdin;
 	env->stdout = stdout;
 	env->stderr = stderr;
 
@@ -1610,13 +1660,15 @@ ulver_env *ulver_init() {
 
         // the following objects must be protected from gc
         env->t = ulver_object_new(env, ULVER_TRUE);
-
         env->t->gc_protected = 1;
 	ulver_symbol_set(env, "t", 1, env->t);
 
         env->nil = ulver_object_new(env, 0);
         env->nil->gc_protected = 1;
 	ulver_symbol_set(env, "nil", 3, env->nil);
+
+        env->stdin = ulver_object_from_fd(env, 0);
+        env->stdin->gc_protected = 1;
 
 	// 30 megs memory limit before triggering gc
 	env->max_memory = 30 * 1024 * 1024;
@@ -1691,6 +1743,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "loop", ulver_fun_loop);
 
         ulver_register_fun(env, "return", ulver_fun_return);
+
+        ulver_register_fun(env, "open", ulver_fun_open);
 
         return env;
 }

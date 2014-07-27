@@ -71,7 +71,6 @@ ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
 }
 
 ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
-
 	// append the new source to the env
 	ulver_source *source = env->alloc(env, sizeof(ulver_source));
 	source->str = ulver_utils_strndup(env, buf, len);
@@ -90,18 +89,10 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	// use the new memory
 	buf = source->str;
 
-	// create the root form (if needed)
-	if (!source->form_root) {
-		source->form_root = ulver_form_new(env, source, ULVER_LIST);
-		
-	}
-
+	source->form_root = ulver_form_new(env, source, ULVER_LIST);
 	// form_new is what the parser returns
 	source->form_new = NULL;
 	source->form_list_current = source->form_root;
-
-	int is_escaped = 0;
-	int is_comment = 0;
 
 	// initialize env data for the parser
 	source->is_doublequoted = 0;
@@ -109,6 +100,8 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	source->token_len = 0;
 	source->lines++;
 	source->line_pos = 0;
+	source->is_escaped = 0;
+	source->is_comment = 0;
 
 	for(source->pos=0;source->pos<len;source->pos++) {
 		char c = buf[source->pos];
@@ -119,9 +112,9 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 			source->line_pos = 0;
 		}
 
-		if (is_comment) {
+		if (source->is_comment) {
 			if (c == '\n') {
-				is_comment = 0;
+				source->is_comment = 0;
 			}
 			continue;
 		}
@@ -132,14 +125,14 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 				source->token_len = 0;
 			}
 
-			if (is_escaped) {
+			if (source->is_escaped) {
 				source->token_len++;
-				is_escaped = 0;
+				source->is_escaped = 0;
 				continue;
 			}
 
 			if (c == '\\') {
-				is_escaped = 1;
+				source->is_escaped = 1;
 				continue;
 			}	
 
@@ -147,7 +140,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 			if (c == '"') {
 				ulver_form *uf = ulver_form_commit(env, source);
 				source->is_doublequoted = 0;
-				is_escaped = 0;
+				source->is_escaped = 0;
 				continue;
 			}
 			source->token_len++;
@@ -162,8 +155,9 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 			case ')':
 				ulver_form_commit(env, source);
 				source->form_list_current = source->form_list_current->parent;
+				// incomplete ?
 				if (source->form_list_current == NULL) {
-					printf("[ERROR] unexpected end of program ???\n");
+					printf("[ERROR] unexpected EOF while parsing\n");
 					return NULL;
 				}
 				break;
@@ -177,7 +171,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 				ulver_form_commit(env, source);
 				break;
 			case ';':
-				is_comment = 1;
+				source->is_comment = 1;
 				ulver_form_commit(env, source);
                                 break;
 			default:
@@ -191,6 +185,12 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	}
 
 	ulver_form_commit(env, source);
+
+	// incomplete ?
+	if (source->form_list_current != source->form_root) {
+		printf("[ERROR] parsing error\n");
+		return NULL;
+	}
 
 	return source->form_new;
 }
