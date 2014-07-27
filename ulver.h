@@ -15,6 +15,8 @@
 #include <dlfcn.h>
 #endif
 #include <pthread.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1

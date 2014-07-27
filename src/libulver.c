@@ -929,6 +929,44 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
+ulver_object *ulver_fun_socket_listen(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "socket-listen requires an argument");
+	ulver_object *host = ulver_eval(env, argv);
+	if (!host) return NULL;
+	if (host->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+	struct hostent *he = gethostbyname(host->str);
+	if (!he) return ulver_error_form(env, argv, "unable to resolve");
+	int s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s < 0) return ulver_error(env, "unable to create socket");
+	struct sockaddr_in sin;
+	memset(&sin, 0, sizeof(struct sockaddr_in));
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(9191);
+	memcpy(&sin.sin_addr, he->h_addr_list[0], 4);
+	if (bind(s, (struct sockaddr *) &sin, sizeof(struct sockaddr_in))) {
+		close(s);
+		return ulver_error(env, "unable to bind socket");
+	}
+	if (listen(s, 100)) {
+		close(s);
+		return ulver_error(env, "unable to put socket in listen state");
+	}
+	return ulver_object_from_fd(env, s);	
+}
+
+ulver_object *ulver_fun_socket_accept(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "socket-accept requires an argument");
+        ulver_object *stream = ulver_eval(env, argv);
+        if (!stream) return NULL;
+        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+        if (stream->closed) return ulver_error(env, "stream is closed");
+	int fd = accept(stream->fd, NULL, NULL);
+        if (fd < 0) {
+                return ulver_error(env, "accept() error");
+        }
+        return ulver_object_from_fd(env, fd);
+}
+
 ulver_object *ulver_fun_close(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "close requires an argument");
 	ulver_object *stream = ulver_eval(env, argv);
@@ -1752,6 +1790,9 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "open", ulver_fun_open);
         ulver_register_fun(env, "close", ulver_fun_close);
+
+        ulver_register_fun(env, "socket-listen", ulver_fun_socket_listen);
+        ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
 
         return env;
 }
