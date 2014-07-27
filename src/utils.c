@@ -239,3 +239,32 @@ char *ulver_utils_is_library(ulver_env *env, char *filename) {
 	memcpy(entry_point + name_len, "_init\0", 6);
 	return entry_point;
 }
+
+char *ulver_utils_readline_from_fd(int fd, uint64_t *slen) {
+	size_t buf_len = 4096;
+	char *buf = malloc(buf_len);
+	char *ptr = buf;
+	for(;;) {
+		if ((ptr - buf) > buf_len) {
+			buf_len += 4096;
+			char *tmp = realloc(buf, buf_len);
+			if (!tmp) goto error;
+			buf = tmp;
+		}
+		ssize_t rlen = read(fd, ptr, 1);
+		if (rlen == 0) {
+			if (ptr - buf > 0) break;
+			goto error;
+		}
+		if (rlen != 1) goto error;
+		if (*ptr == '\n' || *ptr == '\r') break;
+		ptr++;
+	}
+
+	*slen = (ptr - buf);
+	return buf;
+
+error:
+	free(buf);
+	return NULL;
+}

@@ -273,3 +273,4 @@ void ulver_utils_print_form(ulver_env *, ulver_form *);
 ulver_thread *ulver_current_thread(ulver_env *);
 
 char *ulver_utils_is_library(ulver_env *env, char *);
+char *ulver_utils_readline_from_fd(int, uint64_t *);

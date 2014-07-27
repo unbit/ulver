@@ -38,20 +38,14 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_object *uo = ulver_eval(env, argv);
         if (uo->type == ULVER_NUM) {
-		//pthread_mutex_unlock(&ut->lock);
 		pthread_rwlock_unlock(&env->unsafe_lock);
-		printf("sleeping\n");
 		sleep(uo->n);
-		printf("slept\n");
 		pthread_rwlock_rdlock(&env->unsafe_lock);
-		//pthread_mutex_lock(&ut->lock);
         }
         else if (uo->type == ULVER_FLOAT) {
-		//pthread_mutex_unlock(&ut->lock);
 		pthread_rwlock_unlock(&env->unsafe_lock);
 		usleep(uo->d * (1000*1000));
 		pthread_rwlock_rdlock(&env->unsafe_lock);
-		//pthread_mutex_lock(&ut->lock);
         }
         return env->nil;
 
@@ -164,19 +158,21 @@ ulver_object *ulver_fun_read_from_string(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
-	char buf[8192];
-/*
-        if (fgets(buf, 8192, env->stdin)) {
-                size_t len = strlen(buf);
-                if (buf[len-1] == '\n') len--;
-        	ulver_form *uf = ulver_parse(env, buf, len);
-		if (!uf) return ulver_error(env, "unable to parse \"%.*s\"", (int) len, buf);
-        	ulver_object *form = ulver_object_new(env, ULVER_FORM);
-        	form->form = uf;
-        	return form;
+	ulver_object *stream = env->stdin;
+        if (argv) {
+                stream = ulver_eval(env, argv);
+                if (!stream) return NULL;
+                if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
         }
-*/
-        return ulver_error(env, "EOF");
+        uint64_t slen = 0;
+        char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
+        if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
+        ulver_form *uf = ulver_parse(env, buf, slen);
+        free(buf);
+	if (!uf) return ulver_error(env, "unable to parse");
+        ulver_object *form = ulver_object_new(env, ULVER_FORM);
+        form->form = uf;
+       	return form;
 }
 
 
@@ -932,7 +928,6 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
-// TODO find a way to better manage memory
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 	ulver_object *stream = env->stdin;
 	if (argv) {
@@ -940,15 +935,12 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 		if (!stream) return NULL;
 		if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
 	}
-/*
-	char buf[8192];
-	if (fgets(buf, 8192, env->stdin)) {
-		size_t len = strlen(buf);
-		if (buf[len-1] == '\n') len--;
-		return ulver_object_from_string(env, buf, len);
-	}
-*/
-	return NULL;
+	uint64_t slen = 0;
+	char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
+	if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
+	ulver_object *s = ulver_object_from_string(env, buf, slen);
+	free(buf);
+	return s;
 }
 
 ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
