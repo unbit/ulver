@@ -164,6 +164,7 @@ ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
                 if (!stream) return NULL;
                 if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
         }
+	if (stream->closed) return ulver_error(env, "stream is closed");
         uint64_t slen = 0;
         char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
         if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
@@ -928,6 +929,18 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
+ulver_object *ulver_fun_close(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "close requires an argument");
+	ulver_object *stream = ulver_eval(env, argv);
+        if (!stream) return NULL;
+        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+	if (stream->closed) {
+		return env->nil;
+	}
+	stream->closed = 1;
+	return env->t;
+}
+
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 	ulver_object *stream = env->stdin;
 	if (argv) {
@@ -935,6 +948,7 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 		if (!stream) return NULL;
 		if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
 	}
+	if (stream->closed) return ulver_error(env, "stream is closed");
 	uint64_t slen = 0;
 	char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
 	if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
@@ -1737,6 +1751,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "return", ulver_fun_return);
 
         ulver_register_fun(env, "open", ulver_fun_open);
+        ulver_register_fun(env, "close", ulver_fun_close);
 
         return env;
 }
