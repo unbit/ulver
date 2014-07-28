@@ -232,8 +232,8 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 
 ulver_stackframe *ulver_stack_push(ulver_env *env, ulver_thread *ut) {
 	ulver_stackframe *ustack = env->alloc(env, sizeof(ulver_stackframe));
-	ulver_stackframe *previous_stackframe = ut->stack;
-	ut->stack = ustack;
+	ulver_stackframe *previous_stackframe = ut->current_coro->stack;
+	ut->current_coro->stack = ustack;
 	ustack->prev = previous_stackframe;
 	ustack->locals = ulver_symbolmap_new(env);
 	return ustack;
@@ -258,8 +258,8 @@ void ulver_symbolmap_destroy(ulver_env *env, ulver_symbolmap *smap) {
 }
 
 void ulver_stack_pop(ulver_env *env, ulver_thread *ut) {
-	ulver_stackframe *ustack = ut->stack;
-	ut->stack = ustack->prev;
+	ulver_stackframe *ustack = ut->current_coro->stack;
+	ut->current_coro->stack = ustack->prev;
 
 	ulver_symbolmap_destroy(env, ustack->locals);
 

@@ -66,7 +66,7 @@ static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         }
 
 	// consume the whole stack
-	while(ut->stack) {
+	while(ut->current_coro->stack) {
                 ulver_stack_pop(env, ut);
         }
 
@@ -107,7 +107,7 @@ void ulver_gc(ulver_env *env) {
 	while(ut) {
 		// lock the thread (it could be running)
 		//pthread_mutex_lock(&ut->lock);
-		ulver_stackframe *stack = ut->stack;
+		ulver_stackframe *stack = ut->current_coro->stack;
 		while(stack) {
 			// iterate all locals
 			mark_symbolmap(env, stack->locals);

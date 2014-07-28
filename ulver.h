@@ -18,6 +18,13 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <uv.h>
+#include <ucontext.h>
+
+extern void __splitstack_block_signals_context(void *, int *, int *);
+extern void __splitstack_getcontext(void *);
+extern void __splitstack_setcontext(void *);
+extern void *__splitstack_makecontext(size_t, void *, size_t *);
+extern void __splitstack_releasecontext(void *);
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -44,6 +51,7 @@ typedef struct ulver_symbolmap ulver_symbolmap;
 typedef struct ulver_source ulver_source;
 typedef struct ulver_thread ulver_thread;
 typedef struct ulver_message ulver_message;
+typedef struct ulver_coro ulver_coro;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -69,21 +77,32 @@ struct ulver_source {
 	uint8_t is_comment;
 };
 
+struct ulver_coro {
+	ulver_env *env;
+	void *ss_contexts[10];
+	ucontext_t context;
+	ulver_coro *prev;
+	ulver_coro *next;
+	ulver_stackframe *stack;
+        ulver_object *caller;
+	char *error;
+	uint64_t error_len;
+	uint64_t error_buf_len;
+	uint8_t trigger_gc;
+};
 
 struct ulver_thread {
 	pthread_t t;
 	//pthread_mutex_t lock;
-	char *error;
-	uint64_t error_len;
-	uint64_t error_buf_len;
-        ulver_object *caller;
-	ulver_stackframe *stack;
 	ulver_thread *prev;
 	ulver_thread *next;
 	// when set, the structure can be destroyed
 	uint8_t dead;
-	uint8_t trigger_gc;
 	uv_loop_t *loop;
+	ucontext_t hub_context;
+	ulver_coro *coros;
+	ulver_coro *current_coro;
+	ulver_coro *scheduled_coros;
 };
 
 struct ulver_message {

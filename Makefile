@@ -16,16 +16,16 @@ else
 endif
 
 all: libulver.a $(LIBNAME)
-	$(CC) -I. -g -o $(BINNAME) main.c libulver.a $(LDFLAGS) $(LIBS)
+	$(CC) -fuse-ld=gold -I. -g -o $(BINNAME) main.c libulver.a $(LDFLAGS) $(LIBS)
 
 src/%.o: src/%.c
-	$(CC) -I. $(CFLAGS) -g -o $@ -c $<
+	$(CC) -fsplit-stack -I. $(CFLAGS) -g -o $@ -c $<
 
 libulver.a: $(OBJECTS) 
 	$(AR) rcs libulver.a $(OBJECTS)
 
 $(LIBNAME):
-	$(CC) -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS)
+	$(CC) -fuse-ld=gold -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS)
 
 test: libulver.a
 	@$(CC) -I. -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS)

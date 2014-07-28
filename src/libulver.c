@@ -34,13 +34,35 @@ ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
         return NULL;
 }
 
+static void timer_switch_back_to_me(uv_timer_t* handle) {
+	ulver_coro *to_coro = (ulver_coro *) handle->data;
+	ulver_thread *ut = ulver_current_thread(to_coro->env);	
+	// do we need to switch ?
+	if (ut->current_coro != to_coro) {
+		// switch back
+		printf("switch required\n");
+	}
+}
+
+static void switch_to_hub(ulver_env *env, ulver_thread *ut) {
+	__splitstack_getcontext(ut->current_coro->ss_contexts);
+	swapcontext(&ut->current_coro->context, &ut->hub_context);
+}
+
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "sleep requires an argument");
+	ulver_thread *ut = ulver_current_thread(env);
         ulver_object *uo = ulver_eval(env, argv);
         if (uo->type == ULVER_NUM) {
-		pthread_rwlock_unlock(&env->unsafe_lock);
-		sleep(uo->n);
-		pthread_rwlock_rdlock(&env->unsafe_lock);
+		//pthread_rwlock_unlock(&env->unsafe_lock);
+		uv_timer_t timer_req;
+		uv_timer_init(ut->loop, &timer_req);
+		timer_req.data = ut->current_coro;
+		uv_timer_start(&timer_req, timer_switch_back_to_me, uo->n * 1000, 0);
+		switch_to_hub(env, ut);
+		// back from hub
+		uv_timer_stop(&timer_req);
+		//pthread_rwlock_rdlock(&env->unsafe_lock);
         }
         else if (uo->type == ULVER_FLOAT) {
 		pthread_rwlock_unlock(&env->unsafe_lock);
@@ -215,7 +237,7 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	ulver_thread *ut = ulver_current_thread(env);
 
-	ut->caller = u_func;
+	ut->current_coro->caller = u_func;
 
 	// add a new stack frame
         ulver_stack_push(env, ut);
@@ -241,7 +263,7 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	ulver_stack_pop(env, ut);
 
 	// this ensure the returned value is not garbage collected
-	ut->stack->ret = ret;
+	ut->current_coro->stack->ret = ret;
 
 	//pthread_rwlock_unlock(&env->unsafe_lock);
 
@@ -255,8 +277,8 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 	pthread_mutex_lock(&env->mem_lock);
         env->calls++;
 	// gc must be called only if the maximum amount of memory is reached
-	if (ut->trigger_gc || (env->gc_freq > 0 && env->mem > env->max_memory)) {
-		if (ut->trigger_gc || ((env->calls % env->gc_freq) == 0)) {
+	if (ut->current_coro->trigger_gc || (env->gc_freq > 0 && env->mem > env->max_memory)) {
+		if (ut->current_coro->trigger_gc || ((env->calls % env->gc_freq) == 0)) {
 			run_gc = 1;
 		}
 	}
@@ -270,7 +292,7 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 		pthread_rwlock_unlock(&env->unsafe_lock);
 		//pthread_mutex_unlock(&ut->lock);
 		//pthread_mutex_unlock(&env->gc_lock);
-		ut->trigger_gc = 0;
+		ut->current_coro->trigger_gc = 0;
 	}
 
 	// and now lock again the thread, and pop the stack
@@ -605,7 +627,7 @@ ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
 
 ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
 	ulver_thread *ut = ulver_current_thread(env);
-	ut->trigger_gc = 1;
+	ut->current_coro->trigger_gc = 1;
 	return ulver_object_from_num(env, env->mem);
 }
 
@@ -755,8 +777,8 @@ ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) {
 	// lambda and progn must be read before the lisp engine changes env->caller
 	ulver_thread *ut = ulver_current_thread(env);
-	ulver_form *uf = ut->caller->lambda_list;
-	ulver_form *progn = ut->caller->form;
+	ulver_form *uf = ut->current_coro->caller->lambda_list;
+	ulver_form *progn = ut->current_coro->caller->form;
 
 	while(uf) {
 		if (!argv) {
@@ -907,7 +929,7 @@ ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	if (!uo) return NULL;
 	// first of all check if the local variable is already defined
 	ulver_thread *ut = ulver_current_thread(env);
-        ulver_stackframe *stack = ut->stack;
+        ulver_stackframe *stack = ut->current_coro->stack;
         while(stack) {
                 ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, argv->value, argv->len, 0);
                 if (us) {
@@ -1097,9 +1119,9 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	ulver_thread *ut = ulver_current_thread(env);	
 
 	// append the object to the stack-related ones
-	ulver_object *latest_stack_object = ut->stack->objects;
-	ut->stack->objects = uo;
-	ut->stack->objects->stack_next = latest_stack_object;
+	ulver_object *latest_stack_object = ut->current_coro->stack->objects;
+	ut->current_coro->stack->objects = uo;
+	ut->current_coro->stack->objects->stack_next = latest_stack_object;
 
 	pthread_mutex_lock(&env->gc_root_lock);
 
@@ -1223,7 +1245,7 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 		pthread_rwlock_unlock(&env->globals_lock);
 		return ret;
         }
-        ulver_stackframe *stack = ut->stack;
+        ulver_stackframe *stack = ut->current_coro->stack;
         while(stack) {
                 if (!ulver_symbolmap_delete(env, stack->locals, name, len, 0)) {
 			return 0;
@@ -1247,7 +1269,7 @@ ulver_object *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 		return ret;
 	}	
 	ulver_thread *ut = ulver_current_thread(env);
-	ulver_stackframe *stack = ut->stack;
+	ulver_stackframe *stack = ut->current_coro->stack;
 	while(stack) {
 		ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, name, len, 0);
 		if (us) return us->value;
@@ -1307,13 +1329,13 @@ ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
 ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
 	ulver_thread *ut = ulver_current_thread(env);
 	// when trying to set an error, check if a previous one is set
-	if (ut->error) {
+	if (ut->current_coro->error) {
 		// if we are not setting a new error, we are attempting to free it...
 		if (!fmt) {
-			env->free(env, ut->error, ut->error_buf_len);
-			ut->error = NULL;
-			ut->error_len = 0;
-			ut->error_buf_len = 0;
+			env->free(env, ut->current_coro->error, ut->current_coro->error_buf_len);
+			ut->current_coro->error = NULL;
+			ut->current_coro->error_len = 0;
+			ut->current_coro->error_buf_len = 0;
 		}
 		return NULL;
 	}
@@ -1337,16 +1359,16 @@ ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
 			goto fatal;
         	}
 	} 
-	ut->error = buf;
-	ut->error_len = ret;
-	ut->error_buf_len = buf_size;
+	ut->current_coro->error = buf;
+	ut->current_coro->error_len = ret;
+	ut->current_coro->error_buf_len = buf_size;
 	return NULL;
 
 fatal:
 	env->free(env, buf, buf_size);
-	ut->error = ulver_utils_strdup(env, "FATAL ERROR");
-        ut->error_len = strlen(ut->error);
-	ut->error_buf_len = ut->error_len + 1;
+	ut->current_coro->error = ulver_utils_strdup(env, "FATAL ERROR");
+        ut->current_coro->error_len = strlen(ut->current_coro->error);
+	ut->current_coro->error_buf_len = ut->current_coro->error_len + 1;
         return NULL;
 }
 
@@ -1400,9 +1422,16 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 			
 	}
 
-	if (ut->error) {
+	if (ut->current_coro->error) {
 		ret = NULL;
 	}
+
+	// switch back to main
+	__splitstack_getcontext(ut->current_coro->ss_contexts);
+	swapcontext(&ut->current_coro->context, &ut->hub_context);
+	// run uv tasks
+	printf("back to main\n");
+	uv_run(ut->loop, UV_RUN_NOWAIT);
 	return ret;
 }
 
@@ -1482,13 +1511,13 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
 	ulver_thread *ut = ulver_current_thread(env);
 	// is it a global var ?
-	if ((len > 2 && name[0] == '*' && name[len-1] == '*') || ut->stack->prev == NULL) {
+	if ((len > 2 && name[0] == '*' && name[len-1] == '*') || ut->current_coro->stack->prev == NULL) {
 		pthread_rwlock_wrlock(&env->globals_lock);
 		ulver_symbol *us = ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
 		pthread_rwlock_wrlock(&env->globals_lock);
 		return us;
 	}	
-	return ulver_symbolmap_set(env, ut->stack->locals, name, len, uo, 0);
+	return ulver_symbolmap_set(env, ut->current_coro->stack->locals, name, len, uo, 0);
 }
 
 ulver_object *ulver_load(ulver_env *env, char *filename) {
@@ -1636,11 +1665,15 @@ uint64_t ulver_destroy(ulver_env *env) {
 
 void ulver_report_error(ulver_env *env) {
 	ulver_thread *ut = ulver_current_thread(env);
-	if (ut->error) {
-		fprintf(env->stderr, "\n*** ERROR: %.*s ***\n", (int) ut->error_len, ut->error);
+	if (ut->current_coro->error) {
+		fprintf(env->stderr, "\n*** ERROR: %.*s ***\n", (int) ut->current_coro->error_len, ut->current_coro->error);
                 // clear error
                 ulver_error(env, NULL);
 	}
+}
+
+static void fake() {
+	printf("the fake function\n");
 }
 
 ulver_thread *ulver_current_thread(ulver_env *env) {
@@ -1648,6 +1681,25 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
 	ut->t = pthread_self();
+	ut->loop = uv_loop_new();
+
+	ut->coros = env->alloc(env, sizeof(ulver_coro));
+	// uv callbacks only get ulver_coro pointer as data
+	// so we need an additional pointer to env
+	ut->coros->env = env;
+
+	getcontext(&ut->coros->context);
+	size_t len= 0 ;
+	int off = 0;
+	void *stack = __splitstack_makecontext(8192, ut->coros->ss_contexts, &len);
+	__splitstack_block_signals_context(ut->coros->ss_contexts, &off, NULL);	
+	ut->coros->context.uc_link = 0;
+        ut->coros->context.uc_stack.ss_sp = stack;
+        ut->coros->context.uc_stack.ss_size = len;
+        ut->coros->context.uc_stack.ss_flags = 0;
+        makecontext(&ut->coros->context, fake, 0);
+
+	ut->current_coro = ut->coros;
 	//pthread_mutex_init(&ut->lock, NULL);
 	//pthread_mutex_lock(&ut->lock);
         pthread_setspecific(env->thread, (void *) ut);
@@ -1660,6 +1712,11 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	pthread_rwlock_unlock(&env->threads_lock);
 
 	pthread_rwlock_rdlock(&env->unsafe_lock);
+
+	//we can now switch to the new coro
+	__splitstack_setcontext(ut->coros->ss_contexts);
+        swapcontext(&ut->hub_context, &ut->coros->context);
+	printf("back\n");	
         return ut;
 }
 
