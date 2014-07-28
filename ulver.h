@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <uv.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -82,6 +83,7 @@ struct ulver_thread {
 	// when set, the structure can be destroyed
 	uint8_t dead;
 	uint8_t trigger_gc;
+	uv_loop_t *loop;
 };
 
 struct ulver_message {

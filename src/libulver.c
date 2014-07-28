@@ -889,7 +889,11 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 	ulver_form *vars = argv->list;
 	while(vars) {
 		ulver_form *var = vars->list;	
-		ulver_symbol_set(env, var->value, var->len, ulver_eval(env, var->next));
+		if (!var) return ulver_error_form(env, vars, "not usable as local var");
+		if (!var->next) return ulver_error_form(env, vars, "not usable as local var");
+		ulver_object *value = ulver_eval(env, var->next);
+		if (!value) return NULL;
+		ulver_symbol_set(env, var->value, var->len, value);
 		vars = vars->next;
 	}
 	if (!argv->next) return env->nil;

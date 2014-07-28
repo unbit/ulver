@@ -1,13 +1,13 @@
 OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/libulver.o
 ifeq ($(OS), Windows_NT)
-	LDFLAGS=
+	LDFLAGS=-luv
 	LIBS=
 	CFLAGS=
 	LIBNAME=ulver.dll
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe
 else
-	LDFLAGS=-rdynamic -ldl
+	LDFLAGS=-luv -rdynamic -ldl -lpthread
 	LIBS=-lreadline
 	CFLAGS=-fPIC
 	LIBNAME=libulver.so
