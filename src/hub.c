@@ -175,7 +175,7 @@ static void coro_eval(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "make-coro requires an argument");
+	if (!argv || !argv->next) return ulver_error(env, "make-coro requires two arguments");
 	ulver_thread *ut = ulver_current_thread(env);
 	// ensure the hub is running ...
 	// schedule the main coro
@@ -195,7 +195,8 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
 		coro->next = old;
 		old->prev = coro;
 	}
-	makecontext(&coro->context, (void (*)(void))coro_eval, 2, env, argv);
+	printf("ARGV->NEXT %p\n", argv->next);
+	makecontext(&coro->context, (void (*)(void))coro_eval, 2, env, argv->next);
 	ulver_coro *current_coro = ut->current_coro;
 	ut->current_coro = coro;
 	ulver_stack_push(env, ut);
@@ -209,6 +210,8 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
 
 	ulver_object *oc = ulver_object_new(env, ULVER_CORO);
 	oc->coro = coro;
+	oc->lambda_list = argv->list;
+	printf("RETURNING OC %p\n", oc);
 	return oc;
 }
 

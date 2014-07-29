@@ -261,11 +261,11 @@ void tests() {
 
 	test_num("(let ((z 1)) (loop (if (= z 30) (return z)) (setq z (+ z 1) ) ) )", 30);
 
-	test_num("(setq coro1 (make-coro (progn (coro-yield 1)(coro-yield 2)(coro-yield 3)(coro-yield 4)(coro-yield 5))))(+ 2 (coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1))", 17);
-	test_num("(coro-next (make-coro 17))", 17);
-	test_num("(setq coro1 (make-coro (progn (coro-yield 1)(coro-yield 2)(coro-yield 3))))"
-		"(setq coro2 (make-coro (progn (coro-yield 2)(coro-yield 3)(coro-yield 4))))"
-		"(setq coro3 (make-coro (progn (coro-yield 5)(coro-yield 6)(coro-yield 7))))"
+	test_num("(setq coro1 (make-coro () (progn (coro-yield 1)(coro-yield 2)(coro-yield 3)(coro-yield 4)(coro-yield 5))))(+ 2 (coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1))", 17);
+	test_num("(coro-next (make-coro () 17))", 17);
+	test_num("(setq coro1 (make-coro () (progn (coro-yield 1)(coro-yield 2)(coro-yield 3))))"
+		"(setq coro2 (make-coro () (progn (coro-yield 2)(coro-yield 3)(coro-yield 4))))"
+		"(setq coro3 (make-coro () (progn (coro-yield 5)(coro-yield 6)(coro-yield 7))))"
 		"(+ (coro-next coro1)(coro-next coro2)(coro-next coro3)(coro-next coro1)(coro-next coro2)(coro-next coro3) -2)", 17);
 
 }

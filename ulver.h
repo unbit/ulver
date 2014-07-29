@@ -211,8 +211,13 @@ struct ulver_object {
 	uint8_t unsafe;
 	uint8_t _return;
 	int fd;
+	uv_tcp_t stream;
 	uint8_t closed;
 	ulver_coro *coro;
+	void *data;
+	void (*on_destroy)(ulver_object *);
+	ulver_env *env;
+	ulver_coro *current_coro;
 };
 
 struct ulver_form {
