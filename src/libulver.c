@@ -12,14 +12,6 @@ ulver_object *ulver_fun_coro_yield(ulver_env *env, ulver_form *argv) {
         return ulver_object_new(env, ULVER_CORO_DEAD);
 }
 
-ulver_object *ulver_fun_coro_ret(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "coro-next requires an argument");
-        ulver_object *coro = ulver_eval(env, argv);
-        if (!coro) return NULL;
-        if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
-	return coro->coro->ret;
-}
-
 ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "coro-next requires an argument");	
 	ulver_object *coro = ulver_eval(env, argv);
@@ -1912,7 +1904,6 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
 
         ulver_register_fun(env, "make-coro", ulver_fun_make_coro);
-        ulver_register_fun(env, "coro-ret", ulver_fun_coro_ret);
         ulver_register_fun(env, "coro-next", ulver_fun_coro_next);
         ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
 
