@@ -130,6 +130,7 @@ uvrun:
 			break;
 		}
 	}
+	uv_loop_delete(ut->hub_loop);
 	env->free(env, ut->hub, sizeof(ulver_coro));
 	ut->hub = NULL;
 	ut->hub_loop = NULL;
@@ -192,6 +193,7 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
 		ulver_coro *old = ut->coros;
 		ut->coros = coro;
 		coro->next = old;
+		old->prev = coro;
 	}
 	makecontext(&coro->context, (void (*)(void))coro_eval, 2, env, argv);
 	ulver_coro *current_coro = ut->current_coro;

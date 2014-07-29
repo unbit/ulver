@@ -1670,6 +1670,16 @@ uint64_t ulver_destroy(ulver_env *env) {
 		if (!pthread_equal(pthread_self(), ut->t)) {
 			pthread_join(ut->t, NULL);
 		} 
+		// mark all the coros as dead
+		ulver_coro *coros = ut->coros;
+		while(coros) {
+			coros->dead = 1;
+			coros = coros->next;
+		}
+		if (ut->hub) {
+			uv_loop_delete(ut->hub_loop);
+        		env->free(env, ut->hub, sizeof(ulver_coro));
+		}
 		ut = ut->next;
 	}
 	pthread_rwlock_unlock(&env->threads_lock);

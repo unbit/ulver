@@ -46,6 +46,34 @@ static void mark_symbolmap(ulver_env *env, ulver_symbolmap *smap) {
         }
 }
 
+static void destroy_coro(ulver_env *env, ulver_thread *ut, ulver_coro *coro) {
+	// consume the whole stack
+	ulver_coro *current_coro = ut->current_coro;
+        ut->current_coro = coro;
+        while(ut->current_coro->stack) {
+                ulver_stack_pop(env, ut);
+        }
+
+	// remove the coro from the chain
+	ulver_coro *prev = coro->prev;
+	ulver_coro *next = coro->next;
+
+	if (prev) {
+		prev->next = next;
+	}
+
+	if (next) {
+		next->prev = prev;
+	}
+
+	if (coro == ut->coros) {
+		ut->coros = next;
+	}
+
+	env->free(env, coro, sizeof(ulver_coro));
+	ut->current_coro = current_coro;
+}
+
 // this must be called with threads_lock acquired
 static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         // we are here when the thread is marked as dead.
@@ -66,6 +94,8 @@ static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         }
 
 	// consume the whole stack
+	ulver_coro *current_coro = ut->current_coro;
+	ut->current_coro = ut->main_coro;
 	while(ut->current_coro->stack) {
                 ulver_stack_pop(env, ut);
         }
@@ -73,8 +103,12 @@ static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         // now we can release the thread lock
         //pthread_mutex_unlock(&ut->lock);
 
+	env->free(env, ut->main_coro, sizeof(ulver_coro));
+
         // and free its memory
         env->free(env, ut, sizeof(ulver_thread));
+
+	ut->current_coro = current_coro;
 }
 
 
@@ -107,11 +141,19 @@ void ulver_gc(ulver_env *env) {
 
 	env->gc_rounds++;
 
-	// first search for all dead threads
+	// first search for all dead threads and coros
 	//pthread_rwlock_wrlock(&env->threads_lock);
 	ulver_thread *ut = env->threads;
         while(ut) {
 		ulver_thread *next = ut->next;
+		ulver_coro *coros = ut->coros;
+		while(coros) {
+			ulver_coro *next_coro = coros->next;
+			if (coros->dead) {
+				destroy_coro(env, ut, coros);
+			}
+			coros = next_coro;
+		}
 		if (ut->dead) {
 			ulver_thread_destroy(env, ut);
 		}

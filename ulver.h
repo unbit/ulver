@@ -90,6 +90,7 @@ struct ulver_coro {
 	ulver_env *env;
 	void *ss_contexts[10];
 	ucontext_t context;
+	ulver_coro *prev;
 	ulver_coro *next;
 	ulver_stackframe *stack;
         ulver_object *caller;
