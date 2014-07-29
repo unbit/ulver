@@ -107,21 +107,28 @@ void ulver_gc(ulver_env *env) {
 	while(ut) {
 		// lock the thread (it could be running)
 		//pthread_mutex_lock(&ut->lock);
-		ulver_stackframe *stack = ut->current_coro->stack;
-		while(stack) {
-			// iterate all locals
-			mark_symbolmap(env, stack->locals);
-			// iterate all objects
-			ulver_object *so = stack->objects;
-			while(so) {
-				object_mark(env, so);
-				so = so->stack_next;
+		ulver_coro *coros = ut->coros;
+		while(coros) {
+			ulver_stackframe *stack = coros->stack;
+			while(stack) {
+				// iterate all locals
+				mark_symbolmap(env, stack->locals);
+				// iterate all objects
+				ulver_object *so = stack->objects;
+				while(so) {
+					object_mark(env, so);
+					so = so->stack_next;
+				}
+				// get the return value (if any)
+				if (stack->ret) {
+					object_mark(env, stack->ret);
+				}
+				stack = stack->prev;
 			}
-			// get the return value (if any)
-			if (stack->ret) {
-				object_mark(env, stack->ret);
+			if (coros->ret) {
+				object_mark(env, coros->ret);
 			}
-			stack = stack->prev;
+			coros = coros->next;
 		}
 		//pthread_mutex_unlock(&ut->lock);
 		ut = ut->next;

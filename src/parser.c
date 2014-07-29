@@ -126,7 +126,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 			}
 
 			if (source->is_escaped) {
-				source->token_len++;
+				source->token_len+=2;
 				source->is_escaped = 0;
 				continue;
 			}

@@ -261,4 +261,6 @@ void tests() {
 
 	test_num("(let ((z 1)) (loop (if (= z 30) (return z)) (setq z (+ z 1) ) ) )", 30);
 
+	test_num("(setq coro1 (make-coro (progn (coro-yield 1)(coro-yield 2)(coro-yield 3)(coro-yield 4)(coro-yield 5))))(+ 2 (coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1)(coro-next coro1))", 17);
+
 }

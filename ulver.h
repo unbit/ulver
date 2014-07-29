@@ -40,6 +40,7 @@ extern void __splitstack_releasecontext(void *);
 #define ULVER_CHANNEL 11
 #define ULVER_MULTIVALUE 11
 #define ULVER_CORO 12
+#define ULVER_CORO_DEAD 13
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -98,6 +99,7 @@ struct ulver_coro {
 	uint8_t trigger_gc;
 	uint8_t dead;
 	ulver_object *ret;
+	uint8_t blocked;
 };
 
 struct ulver_thread {
@@ -115,6 +117,7 @@ struct ulver_thread {
 	ulver_scheduled_coro *scheduled_coros_head;
 	ulver_scheduled_coro *scheduled_coros_tail;
 	ulver_env *env;
+	ulver_coro *hub_creator;
 };
 
 struct ulver_message {
@@ -314,3 +317,5 @@ char *ulver_utils_readline_from_fd(int, uint64_t *);
 void ulver_hub_schedule_coro(ulver_env *, ulver_coro *);
 
 void ulver_coro_yield(ulver_env *, ulver_object *);
+
+void ulver_timer_switch_cb(uv_timer_t*, int);
