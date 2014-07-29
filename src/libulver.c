@@ -2,6 +2,36 @@
 
 ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
 
+ulver_object *ulver_fun_coro_yield(ulver_env *env, ulver_form *argv) {
+	ulver_object *ret = env->nil;
+	if (argv) {
+		ret = ulver_eval(env, argv);
+		if (!ret) return NULL;
+	}
+	ulver_coro_yield(env, ret);
+        return env->nil;
+}
+
+ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "coro-next requires an argument");	
+	ulver_object *coro = ulver_eval(env, argv);
+	if (!coro) return NULL;
+	if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
+	// if the coro is dead just return its last value
+	ulver_object *ret = coro->coro->ret;
+	if (coro->coro->dead) {
+		goto end;
+	}
+	// otherwise get the value and switch to it
+	ulver_hub_schedule_coro(env, coro->coro);
+end:
+	if (!ret) {
+		fprintf(env->stderr, "\n*** ERROR: %.*s ***\n", (int) coro->coro->error_len, coro->coro->error);
+		return NULL;
+	}
+	return ret;
+}
+
 ulver_object *ulver_fun_all_threads(ulver_env *env, ulver_form *argv) {
 	ulver_object *threads = ulver_object_new(env, ULVER_LIST);
 	pthread_rwlock_rdlock(&env->threads_lock);
@@ -1087,6 +1117,12 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_STREAM) {
         	printf("#<STREAM fd:%d>", uo->fd);
         }
+	else if (uo->type == ULVER_THREAD) {
+        	printf("#<THREAD %p>", uo->thread);
+        }
+	else if (uo->type == ULVER_CORO) {
+        	printf("#<CORO %p>", uo->coro);
+        }
 	else if (uo->type == ULVER_FORM) {
 		printf("\n");
 		ulver_utils_print_form(env, uo->form);
@@ -1713,6 +1749,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	ulver_thread *ut = (ulver_thread *) pthread_getspecific(env->thread);
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
+	ut->env = env;
 	ut->t = pthread_self();
 
 	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
@@ -1880,6 +1917,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
 
         ulver_register_fun(env, "make-coro", ulver_fun_make_coro);
+        ulver_register_fun(env, "coro-next", ulver_fun_coro_next);
+        ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
 
         return env;
 }

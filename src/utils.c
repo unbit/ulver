@@ -52,6 +52,12 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
 		else if (item->o->type == ULVER_STREAM) {
                         printf("#<STREAM fd:%d>", item->o->fd);
                 }
+		else if (item->o->type == ULVER_THREAD) {
+                        printf("#<THREAD %p>", item->o->thread);
+                }
+		else if (item->o->type == ULVER_CORO) {
+                        printf("#<CORO %p>", item->o->coro);
+                }
 		else {
                 	printf("?%.*s?", (int) item->o->len, item->o->str);
 		}

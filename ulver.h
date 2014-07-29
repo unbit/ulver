@@ -39,6 +39,7 @@ extern void __splitstack_releasecontext(void *);
 #define ULVER_THREAD 10
 #define ULVER_CHANNEL 11
 #define ULVER_MULTIVALUE 11
+#define ULVER_CORO 12
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -52,6 +53,7 @@ typedef struct ulver_source ulver_source;
 typedef struct ulver_thread ulver_thread;
 typedef struct ulver_message ulver_message;
 typedef struct ulver_coro ulver_coro;
+typedef struct ulver_scheduled_coro ulver_scheduled_coro;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -77,6 +79,12 @@ struct ulver_source {
 	uint8_t is_comment;
 };
 
+struct ulver_scheduled_coro {
+	ulver_coro *coro;
+	ulver_scheduled_coro *prev;
+	ulver_scheduled_coro *next;
+};
+
 struct ulver_coro {
 	ulver_env *env;
 	void *ss_contexts[10];
@@ -88,9 +96,8 @@ struct ulver_coro {
 	uint64_t error_len;
 	uint64_t error_buf_len;
 	uint8_t trigger_gc;
-	ulver_coro *scheduled_prev;
-	ulver_coro *scheduled_next;
 	uint8_t dead;
+	ulver_object *ret;
 };
 
 struct ulver_thread {
@@ -105,8 +112,9 @@ struct ulver_thread {
 	ulver_coro *main_coro;
 	ulver_coro *coros;
 	ulver_coro *current_coro;
-	ulver_coro *scheduled_coros_head;
-	ulver_coro *scheduled_coros_tail;
+	ulver_scheduled_coro *scheduled_coros_head;
+	ulver_scheduled_coro *scheduled_coros_tail;
+	ulver_env *env;
 };
 
 struct ulver_message {
@@ -199,6 +207,7 @@ struct ulver_object {
 	uint8_t _return;
 	int fd;
 	uint8_t closed;
+	ulver_coro *coro;
 };
 
 struct ulver_form {
@@ -301,3 +310,7 @@ ulver_thread *ulver_current_thread(ulver_env *);
 
 char *ulver_utils_is_library(ulver_env *env, char *);
 char *ulver_utils_readline_from_fd(int, uint64_t *);
+
+void ulver_hub_schedule_coro(ulver_env *, ulver_coro *);
+
+void ulver_coro_yield(ulver_env *, ulver_object *);
