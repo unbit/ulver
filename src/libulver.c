@@ -2,6 +2,24 @@
 
 ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
 
+ulver_object *ulver_fun_coro_switch(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "coro-next requires an argument");
+        ulver_object *coro = ulver_eval(env, argv);
+        if (!coro) return NULL;
+        if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
+        // if the coro is dead, raise an error
+        if (coro->coro->dead) {
+                return ulver_error(env, "coro is dead !");
+        }
+        // if the coro is blocked, raise an error
+        if (coro->coro->blocked) {
+                return ulver_error(env, "coro is blocked !");
+        }
+        // otherwise switch to it and get back the value
+        ulver_hub_schedule_coro(env, coro->coro);
+	return env->nil;
+}
+
 ulver_object *ulver_fun_coro_yield(ulver_env *env, ulver_form *argv) {
 	ulver_object *ret = env->nil;
 	if (argv) {
@@ -29,6 +47,10 @@ ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
 	ulver_hub_schedule_coro(env, coro->coro);
 	if (coro->coro->ret && coro->coro->ret->type == ULVER_CORO_DEAD) {
 		return ulver_error(env, "coro is dead !");
+	}
+	// the oro coould be now blocked, so let's wait for it
+	if (coro->coro->blocked) {
+		ulver_hub_wait(env, coro->coro);	
 	}
 	return coro->coro->ret;
 }
@@ -75,7 +97,6 @@ static void switch_to_hub(ulver_env *env, ulver_thread *ut) {
 	}
 	__splitstack_setcontext(ut->hub->ss_contexts);
 	swapcontext(&current_coro->context, &ut->hub->context);
-	printf("BACK FROM HUB\n");
 	ut->current_coro = current_coro;
 }
 
@@ -90,7 +111,6 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 		uv_timer_t *timer = env->alloc(env, sizeof(uv_timer_t));
 		uv_timer_init(ut->hub_loop, timer);
 		timer->data = ut->current_coro;
-		printf("ready to sleep for %p\n", timer->data);
 		uv_timer_start(timer, ulver_timer_switch_cb, uo->n * 1000, 0);
 		ut->current_coro->blocked = 1;
 		switch_to_hub(env, ut);
@@ -101,7 +121,6 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 		usleep(uo->d * (1000*1000));
 		pthread_rwlock_rdlock(&env->unsafe_lock);
         }
-	printf("returning\n");
         return env->nil;
 
 }
@@ -1914,6 +1933,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
 
         ulver_register_fun(env, "make-coro", ulver_fun_make_coro);
+        ulver_register_fun(env, "coro-switch", ulver_fun_coro_switch);
         ulver_register_fun(env, "coro-next", ulver_fun_coro_next);
         ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
 

@@ -253,6 +253,21 @@ void ulver_coro_yield(ulver_env *env, ulver_object *ret) {
         swapcontext(&current_coro->context, &ut->hub->context);
 }
 
+static void schedule_waiters(ulver_env *env, ulver_thread *ut, ulver_coro *coro) {
+	if (ut->main_coro->waiting_for == coro) {
+		ulver_hub_schedule_coro(env, ut->main_coro);
+		ut->main_coro->waiting_for = NULL;
+	}
+
+	ulver_coro *coros = ut->coros;
+	while(coros) {
+		if (coros->waiting_for == coro) {
+			ulver_hub_schedule_coro(env, coros);
+		}
+		coros = coros->next;
+	}
+}
+
 void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
 /*
         ulver_coro *to_coro = (ulver_coro *) handle->data;
@@ -272,7 +287,25 @@ void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
 */
 	ulver_coro *coro = (ulver_coro *) handle->data;
 	ulver_hub_schedule_coro(coro->env, coro);
+	schedule_waiters(coro->env, ulver_current_thread(coro->env), coro);
 	uv_timer_stop(handle);
 	//free(handle);
 	coro->blocked = 0;
+}
+
+void ulver_hub_wait(ulver_env *env, ulver_coro *coro) {
+	ulver_thread *ut = ulver_current_thread(env);
+        ulver_coro *current_coro = ut->current_coro;
+
+	// add the current coro as a a waiting one
+	current_coro->waiting_for = coro;
+
+	// switch to the hub
+        ut->current_coro = ut->hub;
+        if (current_coro != ut->main_coro) {
+                __splitstack_getcontext(current_coro->ss_contexts);
+        }
+        __splitstack_setcontext(ut->hub->ss_contexts);
+        swapcontext(&current_coro->context, &ut->hub->context);
+        ut->current_coro = current_coro;
 }
