@@ -1,4 +1,4 @@
-OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/hub.o src/libulver.o
+OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/io.o src/hub.o src/libulver.o
 ifeq ($(OS), Windows_NT)
 	LDFLAGS=-luv
 	LIBS=
