@@ -70,6 +70,7 @@ static void destroy_coro(ulver_env *env, ulver_thread *ut, ulver_coro *coro) {
 		ut->coros = next;
 	}
 
+	ulver_coro_free_context(env, coro->context);
 	env->free(env, coro, sizeof(ulver_coro));
 	ut->current_coro = current_coro;
 }
@@ -103,6 +104,7 @@ static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         // now we can release the thread lock
         //pthread_mutex_unlock(&ut->lock);
 
+	ulver_coro_free_context(env, ut->main_coro->context);
 	env->free(env, ut->main_coro, sizeof(ulver_coro));
 
         // and free its memory

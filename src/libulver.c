@@ -1665,6 +1665,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 		}
 		if (ut->hub) {
 			uv_loop_delete(ut->hub_loop);
+			ulver_coro_free_context(env, ut->hub->context);
         		env->free(env, ut->hub, sizeof(ulver_coro));
 		}
 		ut = ut->next;
@@ -1740,6 +1741,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	// uv callbacks only get ulver_coro pointer as data
 	// so we need an additional pointer to env
 	ut->main_coro->env = env;
+	ut->main_coro->context = ulver_coro_alloc_context(env);
 	ut->current_coro = ut->main_coro;
 
 	//ut->current_coro = ut->coros;

@@ -14,10 +14,10 @@
 #else
 #include <dlfcn.h>
 #endif
-#include <pthread.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <uv.h>
+#include <pthread.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -81,8 +81,7 @@ struct ulver_scheduled_coro {
 
 struct ulver_coro {
 	ulver_env *env;
-	void *ss_contexts[10];
-	ucontext_t context;
+	void *context;
 	ulver_coro *prev;
 	ulver_coro *next;
 	ulver_stackframe *stack;
@@ -324,3 +323,5 @@ void ulver_hub(ulver_env *);
 ulver_coro *ulver_coro_new(ulver_env *, void *, void *);
 void ulver_coro_switch(ulver_env *, ulver_coro *);
 void ulver_coro_fast_switch(ulver_env *, ulver_coro *);
+void *ulver_coro_alloc_context(ulver_env *);
+void ulver_coro_free_context(ulver_env *, void *);
