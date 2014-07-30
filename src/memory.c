@@ -101,11 +101,12 @@ static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
                 ulver_stack_pop(env, ut);
         }
 
-        // now we can release the thread lock
-        //pthread_mutex_unlock(&ut->lock);
+	// hub ?
+	ulver_hub_destroy(env, ut);
 
 	ulver_coro_free_context(env, ut->main_coro->context);
 	env->free(env, ut->main_coro, sizeof(ulver_coro));
+
 
         // and free its memory
         env->free(env, ut, sizeof(ulver_thread));

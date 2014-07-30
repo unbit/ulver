@@ -46,6 +46,16 @@ static void coro_unschedule(ulver_env *env, ulver_thread *ut, ulver_scheduled_co
 	env->free(env, sc, sizeof(ulver_scheduled_coro));
 }
 
+void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
+	printf("DESTROY\n");
+	if (!ut->hub) return;
+	uv_loop_delete(ut->hub_loop);
+        ulver_coro_free_context(env, ut->hub->context);
+        env->free(env, ut->hub, sizeof(ulver_coro));
+        ut->hub = NULL;
+        ut->hub_loop = NULL;
+        printf("THE HUB IS NO MORE\n");
+}
 
 static void hub_loop(ulver_env *env, ulver_thread *ut) {
 	// back to the creator coro
@@ -53,12 +63,12 @@ static void hub_loop(ulver_env *env, ulver_thread *ut) {
 	// run until there are scheduled or blocked coros
 	for(;;) {
 		// execute all of the sceduled coros
-		ulver_scheduled_coro *scheduled_coros = ut->scheduled_coros_head;
+		ulver_scheduled_coro *next, *scheduled_coros = ut->scheduled_coros_head;
         	while(scheduled_coros) {
-                        ulver_scheduled_coro *next = scheduled_coros->next;
                 	if (scheduled_coros->coro->dead) goto nextcoro;
 			ulver_coro_switch(env, scheduled_coros->coro);
 nextcoro:
+                        next = scheduled_coros->next;
 			coro_unschedule(env, ut, scheduled_coros);
 			scheduled_coros = next;
 		}
@@ -93,15 +103,10 @@ uvrun:
 			if (!running_coros) break;
 		}
 	}
-	uv_loop_delete(ut->hub_loop);
-	ulver_coro_free_context(env, ut->hub->context);
-	env->free(env, ut->hub, sizeof(ulver_coro));
-	ut->hub = NULL;
-	ut->hub_loop = NULL;
-	printf("THE HUB IS NO MORE\n");
+	printf("END OF THE HUB\n");
+	ulver_hub_destroy(env, ut);
 	// back to main
 	ulver_coro_fast_switch(env, ut->main_coro);
-	//setcontext(&ut->main_coro->context);
 }
 
 void ulver_hub(ulver_env *env) {
@@ -110,13 +115,8 @@ void ulver_hub(ulver_env *env) {
         if (ut->hub) return;
 	ut->hub = ulver_coro_new(env, hub_loop, ut);
         ut->hub_loop = uv_loop_new();
-        //makecontext(&ut->hub->context, (void (*)(void))hub_loop, 2, env, ut);
-
-	//coro_schedule(env, ut, ut->current_coro);
-
 	ut->hub_creator = ut->current_coro;
 	ulver_coro_switch(env, ut->hub);
-	ut->current_coro = ut->hub_creator;
 }
 
 void ulver_hub_schedule_coro(ulver_env *env, ulver_coro *coro) {

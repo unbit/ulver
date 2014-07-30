@@ -203,13 +203,14 @@ struct ulver_object {
 	uint8_t unsafe;
 	uint8_t _return;
 	int fd;
-	uv_tcp_t stream;
+	uv_stream_t *stream;
+	uv_write_t writer;
+	uv_buf_t ubuf;
 	uint8_t closed;
 	ulver_coro *coro;
 	void *data;
 	void (*on_destroy)(ulver_object *);
-	ulver_env *env;
-	ulver_coro *current_coro;
+	uint8_t no_lambda;
 };
 
 struct ulver_form {
@@ -325,3 +326,7 @@ void ulver_coro_fast_switch(ulver_env *, ulver_coro *);
 void *ulver_coro_alloc_context(ulver_env *);
 void ulver_coro_free_context(ulver_env *, void *);
 void ulver_hub_schedule_waiters(ulver_env *, ulver_thread *ut, ulver_coro *);
+
+void ulver_hub_destroy(ulver_env *, ulver_thread *);
+
+ulver_object *ulver_call0(ulver_env *, ulver_object *);

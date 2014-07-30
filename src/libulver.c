@@ -1,5 +1,7 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_write_string(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_hub(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
@@ -753,18 +755,20 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 	ulver_form *uf = ut->current_coro->caller->lambda_list;
 	ulver_form *progn = ut->current_coro->caller->form;
 
-	while(uf) {
-		if (!argv) {
-			return ulver_error(env, "missing argument %.*s for lambda_list", (int) uf->len, uf->value);
+	if (!ut->current_coro->caller->no_lambda) {
+		while(uf) {
+			if (!argv) {
+				return ulver_error(env, "missing argument %.*s for lambda_list", (int) uf->len, uf->value);
+			}
+			if (uf->len > 0 && uf->value[0] == '&') {
+				//TODO manage keywords
+			}
+			else {
+				ulver_symbol_set(env, uf->value, uf->len, ulver_eval(env, argv));
+			}
+			argv = argv->next;
+			uf = uf->next;
 		}
-		if (uf->len > 0 && uf->value[0] == '&') {
-			//TODO manage keywords
-		}
-		else {
-			ulver_symbol_set(env, uf->value, uf->len, ulver_eval(env, argv));
-		}
-		argv = argv->next;
-		uf = uf->next;
 	}
 	ulver_object *uo = NULL;
 	while(progn) {
@@ -1092,12 +1096,10 @@ ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
 
 ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	ulver_object *uo = env->alloc(env, sizeof(ulver_object));
-	uo->env = env;
 	uo->type = type;
 
 	// get the current thread;
 	ulver_thread *ut = ulver_current_thread(env);	
-	uo->current_coro = ut->current_coro;
 
 	// append the object to the stack-related ones
 	ulver_object *latest_stack_object = ut->current_coro->stack->objects;
@@ -1291,6 +1293,12 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 		next = next->next;	
 	}
 	return uo;
+}
+
+ulver_object *ulver_call0(ulver_env *env, ulver_object *func) {
+	if (!func || func->type != ULVER_FUNC) return ulver_error(env, "object is not a function");
+	printf("CALL !!!\n");
+	return call_do(env, func, NULL);
 }
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
@@ -1874,6 +1882,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "coro-switch", ulver_fun_coro_switch);
         ulver_register_fun(env, "coro-next", ulver_fun_coro_next);
         ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
+
+        ulver_register_fun(env, "write-string", ulver_fun_write_string);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
 
