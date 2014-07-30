@@ -80,12 +80,21 @@ uvrun:
 			uv_run(ut->hub_loop, UV_RUN_ONCE);
 		}
 		// if no more coros are running, end the hub
-		else if (!ut->coros) {
-			printf("no more coros...\n");
-			break;
+		else {
+			uint8_t running_coros = 0;
+			coros = ut->coros;
+			while(coros) {
+				if (!coros->dead) {
+					running_coros = 1;
+					break;
+				}
+				coros = coros->next;
+			}
+			if (!running_coros) break;
 		}
 	}
 	uv_loop_delete(ut->hub_loop);
+	ulver_coro_free_context(env, ut->hub->context);
 	env->free(env, ut->hub, sizeof(ulver_coro));
 	ut->hub = NULL;
 	ut->hub_loop = NULL;
@@ -139,20 +148,16 @@ void ulver_hub_schedule_waiters(ulver_env *env, ulver_thread *ut, ulver_coro *co
 
 void ulver_hub_wait(ulver_env *env, ulver_coro *coro) {
 	ulver_thread *ut = ulver_current_thread(env);
-        //ulver_coro *current_coro = ut->current_coro;
-
 	// add the current coro as a a waiting one
 	ut->current_coro->waiting_for = coro;
 	ulver_coro_switch(env, ut->hub);
+}
 
-/*
-	// switch to the hub
-        ut->current_coro = ut->hub;
-        if (current_coro != ut->main_coro) {
-                __splitstack_getcontext(current_coro->ss_contexts);
-        }
-        __splitstack_setcontext(ut->hub->ss_contexts);
-        swapcontext(&current_coro->context, &ut->hub->context);
-        ut->current_coro = current_coro;
-*/
+// permanently switch to the hub until it dies
+ulver_object *ulver_fun_hub(ulver_env *env, ulver_form *argv) {
+	// ensure teh hub is running
+	ulver_hub(env);
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_coro_switch(env, ut->hub);
+	return env->nil;
 }

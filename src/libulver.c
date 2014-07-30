@@ -1,5 +1,7 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_hub(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_sleep(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_make_tcp_server(ulver_env *, ulver_form *);
@@ -26,7 +28,9 @@ ulver_object *ulver_fun_return(ulver_env *env, ulver_form *argv) {
 		ret->_return = 1;
 		return ret;
 	}
-	return env->nil;
+	ulver_object *ret = ulver_object_new(env, ULVER_LIST);	
+	ret->_return = 1;
+	return ret;
 }
 
 ulver_object *ulver_fun_loop(ulver_env *env, ulver_form *argv) {
@@ -1502,6 +1506,15 @@ ulver_symbol *ulver_register_fun(ulver_env *env, char *name, ulver_object *(*fun
 	return ulver_register_fun2(env, name, strlen(name), func, NULL, NULL);
 }
 
+ulver_symbol *ulver_register_package_fun(ulver_env *env, ulver_object *package, char *name, ulver_object *(*func)(ulver_env *, ulver_form *)) {
+	ulver_object *current_package = env->current_package;
+	env->current_package = package;
+	ulver_symbolmap_set(env, package->map, name, strlen(name), env->nil, 1);
+        ulver_symbol *us = ulver_register_fun2(env, name, strlen(name), func, NULL, NULL);
+	env->current_package = current_package;
+	return us;
+}
+
 ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_object *uo) {
 	ulver_thread *ut = ulver_current_thread(env);
 	// is it a global var ?
@@ -1757,6 +1770,8 @@ ulver_env *ulver_init() {
         env->cl_user = ulver_package(env, "CL-USER", 7);
         env->current_package = env->cl_user;
 
+	// the ulver special namespace
+        ulver_object *ulver_ns = ulver_package(env, "ULVER", 5);
 
 	ulver_symbol_set(env, "*package*", 9, env->cl_user);
 
@@ -1859,6 +1874,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "coro-switch", ulver_fun_coro_switch);
         ulver_register_fun(env, "coro-next", ulver_fun_coro_next);
         ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
+
+        ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
 
         return env;
 }

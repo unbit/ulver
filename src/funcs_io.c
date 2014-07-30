@@ -45,6 +45,7 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_thread *ut = ulver_current_thread(env);
         ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
         if (uo->type == ULVER_NUM) {
 		ulver_uv_new_timer(env, uo->n * 1000, 0);
         }

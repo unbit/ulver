@@ -38,9 +38,20 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
         ulver_stack_push(env, ut);
         ut->current_coro = current_coro;
 
+	// start pushing lambda_list
+	ulver_form *lambda_list = argv->list;
+	while(lambda_list) {
+		if (lambda_list->type != ULVER_SYMBOL) exit(1);
+		ulver_object *uo = ulver_symbol_get(env, lambda_list->value, lambda_list->len);	
+		if (!uo) exit(1);
+		ulver_symbolmap_set(env, coro->stack->locals, lambda_list->value, lambda_list->len, uo, 0);
+		lambda_list = lambda_list->next;
+	}
+
 	// return a new coro object
         ulver_object *oc = ulver_object_new(env, ULVER_CORO);
         oc->coro = coro;
+	// store the lambda list for future usages
         oc->lambda_list = argv->list;
         return oc;
 }
