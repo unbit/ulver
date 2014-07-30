@@ -1,16 +1,5 @@
 #include <ulver.h>
 
-static void switch_to_hub(ulver_env *env, ulver_thread *ut) {
-        ulver_coro *current_coro = ut->current_coro;
-        ut->current_coro = ut->hub;
-        if (current_coro != ut->main_coro) {
-                __splitstack_getcontext(current_coro->ss_contexts);
-        }
-        __splitstack_setcontext(ut->hub->ss_contexts);
-        swapcontext(&current_coro->context, &ut->hub->context);
-        ut->current_coro = current_coro;
-}
-
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_thread *ut = ulver_current_thread(env);
@@ -24,7 +13,7 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
                 timer->data = ut->current_coro;
                 uv_timer_start(timer, ulver_timer_switch_cb, uo->n * 1000, 0);
                 ut->current_coro->blocked = 1;
-                switch_to_hub(env, ut);
+		ulver_coro_switch(env, ut->hub);
                 //pthread_rwlock_rdlock(&env->unsafe_lock);
         }
         else if (uo->type == ULVER_FLOAT) {
@@ -88,7 +77,8 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
         uv_tcp_bind(&o_server->stream, address);
         uv_listen((uv_stream_t *) &o_server->stream, 128, tcp_server_on_connect);
         ut->current_coro->blocked = 1;
-        switch_to_hub(env, ut);
+        //switch_to_hub(env, ut);
+	ulver_coro_switch(env, ut->hub);
         return env->nil;
 }
 

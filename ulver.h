@@ -18,13 +18,6 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <uv.h>
-#include <ucontext.h>
-
-extern void __splitstack_block_signals_context(void *, int *, int *);
-extern void __splitstack_getcontext(void *);
-extern void __splitstack_setcontext(void *);
-extern void *__splitstack_makecontext(size_t, void *, size_t *);
-extern void __splitstack_releasecontext(void *);
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
@@ -327,3 +320,7 @@ void ulver_coro_yield(ulver_env *, ulver_object *);
 
 void ulver_timer_switch_cb(uv_timer_t*, int);
 void ulver_hub_wait(ulver_env *, ulver_coro *);
+void ulver_hub(ulver_env *);
+ulver_coro *ulver_coro_new(ulver_env *, void *, void *);
+void ulver_coro_switch(ulver_env *, ulver_coro *);
+void ulver_coro_fast_switch(ulver_env *, ulver_coro *);
