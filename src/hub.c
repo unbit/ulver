@@ -52,7 +52,6 @@ static void hub_loop(ulver_env *env, ulver_thread *ut) {
 	ulver_coro_switch(env, ut->hub_creator);
 	// run until there are scheduled or blocked coros
 	for(;;) {
-		printf("cycle\n");
 		// execute all of the sceduled coros
 		ulver_scheduled_coro *scheduled_coros = ut->scheduled_coros_head;
         	while(scheduled_coros) {
@@ -82,6 +81,7 @@ uvrun:
 		}
 		// if no more coros are running, end the hub
 		else if (!ut->coros) {
+			printf("no more coros...\n");
 			break;
 		}
 	}

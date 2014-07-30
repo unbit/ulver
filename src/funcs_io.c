@@ -1,14 +1,44 @@
 #include <ulver.h>
 
-void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
-	printf("back from timer\n");
-        ulver_coro *coro = (ulver_coro *) handle->data;
-        ulver_hub_schedule_waiters(coro->env, ulver_current_thread(coro->env), coro);
-        uv_timer_stop(handle);
-        coro->blocked = 0;
-	// back to coro
-	ulver_coro_switch(coro->env, coro);
-	printf("BACK TO HUB\n");
+typedef struct ulver_uv_timer ulver_uv_timer;
+struct ulver_uv_timer {
+	uv_timer_t t;
+	ulver_coro *coro;
+	ulver_thread *ut;
+	ulver_env *env;
+};
+
+static void free_uv_timer(uv_handle_t* handle) {
+	ulver_uv_timer *uvt = (ulver_uv_timer *) handle->data;
+	ulver_env *env = uvt->env;
+	env->free(env, uvt, sizeof(ulver_uv_timer));
+} 
+
+static void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
+        ulver_uv_timer *uvt = (ulver_uv_timer *) handle->data;
+	ulver_env *env = uvt->env;
+        ulver_hub_schedule_waiters(env, uvt->ut, uvt->coro);
+        uvt->coro->blocked = 0;
+        // back to coro
+        ulver_coro_switch(env, uvt->coro);
+        uv_timer_stop(&uvt->t);
+	// schedule memory free
+	uv_close((uv_handle_t *) &uvt->t, free_uv_timer);
+}
+
+void ulver_uv_new_timer(ulver_env *env, uint64_t timeout, uint64_t repeat) {
+        // ensure the hub is running 
+        ulver_hub(env);
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_uv_timer *uvt = env->alloc(env, sizeof(ulver_uv_timer));
+	uvt->coro = ut->current_coro;
+	uvt->ut = ut;
+	uvt->env = env;
+	ut->current_coro->blocked = 1;
+	uv_timer_init(ut->hub_loop, &uvt->t);
+	uvt->t.data = uvt;
+	uv_timer_start(&uvt->t, ulver_timer_switch_cb, timeout, repeat);
+	ulver_coro_switch(env, ut->hub);	
 }
 
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
@@ -16,21 +46,10 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
         ulver_thread *ut = ulver_current_thread(env);
         ulver_object *uo = ulver_eval(env, argv);
         if (uo->type == ULVER_NUM) {
-                // ensure the hub is running 
-                ulver_hub(env);
-                //pthread_rwlock_unlock(&env->unsafe_lock);
-                uv_timer_t *timer = env->alloc(env, sizeof(uv_timer_t));
-                uv_timer_init(ut->hub_loop, timer);
-                timer->data = ut->current_coro;
-                uv_timer_start(timer, ulver_timer_switch_cb, uo->n * 1000, 0);
-                ut->current_coro->blocked = 1;
-		ulver_coro_switch(env, ut->hub);
-                //pthread_rwlock_rdlock(&env->unsafe_lock);
+		ulver_uv_new_timer(env, uo->n * 1000, 0);
         }
         else if (uo->type == ULVER_FLOAT) {
-                pthread_rwlock_unlock(&env->unsafe_lock);
-                usleep(uo->d * (1000*1000));
-                pthread_rwlock_rdlock(&env->unsafe_lock);
+		ulver_uv_new_timer(env, uo->d * 1000, 0);
         }
         return env->nil;
 

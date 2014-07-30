@@ -317,7 +317,6 @@ void ulver_hub_schedule_coro(ulver_env *, ulver_coro *);
 
 void ulver_coro_yield(ulver_env *, ulver_object *);
 
-void ulver_timer_switch_cb(uv_timer_t*, int);
 void ulver_hub_wait(ulver_env *, ulver_coro *);
 void ulver_hub(ulver_env *);
 ulver_coro *ulver_coro_new(ulver_env *, void *, void *);
