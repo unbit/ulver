@@ -1,5 +1,16 @@
 #include <ulver.h>
 
+void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
+	printf("back from timer\n");
+        ulver_coro *coro = (ulver_coro *) handle->data;
+        ulver_hub_schedule_waiters(coro->env, ulver_current_thread(coro->env), coro);
+        uv_timer_stop(handle);
+        coro->blocked = 0;
+	// back to coro
+	ulver_coro_switch(coro->env, coro);
+	printf("BACK TO HUB\n");
+}
+
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "sleep requires an argument");
         ulver_thread *ut = ulver_current_thread(env);

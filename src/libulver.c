@@ -4,58 +4,9 @@ ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_sleep(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_make_tcp_server(ulver_env *, ulver_form *);
 
-ulver_object *ulver_fun_coro_switch(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "coro-next requires an argument");
-        ulver_object *coro = ulver_eval(env, argv);
-        if (!coro) return NULL;
-        if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
-        // if the coro is dead, raise an error
-        if (coro->coro->dead) {
-                return ulver_error(env, "coro is dead !");
-        }
-        // if the coro is blocked, raise an error
-        if (coro->coro->blocked) {
-                return ulver_error(env, "coro is blocked !");
-        }
-        // otherwise switch to it and get back the value
-        ulver_hub_schedule_coro(env, coro->coro);
-	return env->nil;
-}
-
-ulver_object *ulver_fun_coro_yield(ulver_env *env, ulver_form *argv) {
-	ulver_object *ret = env->nil;
-	if (argv) {
-		ret = ulver_eval(env, argv);
-		if (!ret) return NULL;
-	}
-	ulver_coro_yield(env, ret);
-        return ulver_object_new(env, ULVER_CORO_DEAD);
-}
-
-ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "coro-next requires an argument");	
-	ulver_object *coro = ulver_eval(env, argv);
-	if (!coro) return NULL;
-	if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
-	// if the coro is dead, raise an error
-	if (coro->coro->dead) {
-		return ulver_error(env, "coro is dead !");
-	}
-	// if the coro is blocked, raise an error
-	if (coro->coro->blocked) {
-                return ulver_error(env, "coro is blocked !");
-        }
-	// otherwise switch to it and get back the value
-	ulver_hub_schedule_coro(env, coro->coro);
-	if (coro->coro->ret && coro->coro->ret->type == ULVER_CORO_DEAD) {
-		return ulver_error(env, "coro is dead !");
-	}
-	// the oro coould be now blocked, so let's wait for it
-	if (coro->coro->blocked) {
-		ulver_hub_wait(env, coro->coro);	
-	}
-	return coro->coro->ret;
-}
+ulver_object *ulver_fun_coro_switch(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_coro_yield(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_coro_next(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_all_threads(ulver_env *env, ulver_form *argv) {
 	ulver_object *threads = ulver_object_new(env, ULVER_LIST);

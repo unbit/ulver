@@ -325,3 +325,4 @@ void ulver_coro_switch(ulver_env *, ulver_coro *);
 void ulver_coro_fast_switch(ulver_env *, ulver_coro *);
 void *ulver_coro_alloc_context(ulver_env *);
 void ulver_coro_free_context(ulver_env *, void *);
+void ulver_hub_schedule_waiters(ulver_env *, ulver_thread *ut, ulver_coro *);
