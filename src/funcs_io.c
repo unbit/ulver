@@ -1,21 +1,75 @@
 #include <ulver.h>
 
-typedef struct ulver_uv_writer ulver_uv_writer;
-struct ulver_uv_writer {
-	ulver_object *stream;
-	ulver_env *env;
-	ulver_thread *ut;
-	ulver_coro *coro;
+typedef struct ulver_uv_stream ulver_uv_stream;
+struct ulver_uv_stream {
+	union {
+		uv_stream_t s;
+        	uv_tcp_t tcp;
+        	uv_udp_t udp;
+        	uv_tty_t tty;
+	} handle;
+	uv_write_t writer;
+        ulver_env *env;
+        ulver_thread *ut;
+        ulver_coro *coro;
+        ulver_object *func;
+        char *buf;
+        uint64_t len;
 };
 
-static void ulver_writer_switch_cb(uv_write_t* handle, int status) {
-        ulver_uv_writer *uvw = (ulver_uv_writer *) handle->data;
-        ulver_env *env = uvw->env;
-        uvw->coro->blocked = 0;
+static uv_buf_t ulver_reader_alloc(uv_handle_t *handle, size_t suggested_size) {
+	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
+        ulver_env *env = uvs->env;
+	uv_buf_t buf;
+	buf.base = env->alloc(env, suggested_size);
+	buf.len = uvs->len;
+	return buf;
+}
+
+static void ulver_reader_switch_cb(uv_stream_t* handle, ssize_t nread, uv_buf_t buf) {
+	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
+        ulver_env *env = uvs->env;
+	uvs->coro->blocked = 0;
         // back to coro
-        ulver_coro_switch(env, uvw->coro);
-        // schedule memory free
-	env->free(env, uvw, sizeof(ulver_uv_writer));
+	uvs->buf = buf.base;
+	uvs->len = buf.len;
+	uv_read_stop(handle);
+        ulver_coro_switch(env, uvs->coro);
+}
+
+ulver_object *ulver_fun_read_string(ulver_env *env, ulver_form *argv) {
+        if (!argv || !argv->next) return ulver_error(env, "read-string requires two arguments");
+
+        ulver_object *stream = ulver_eval(env, argv);
+        if (!stream) return NULL;
+        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+
+        ulver_object *amount = ulver_eval(env, argv->next);
+        if (!amount) return NULL;
+        if (amount->type != ULVER_NUM) return ulver_error_form(env, argv->next, "is not a num");
+
+        ulver_thread *ut = ulver_current_thread(env);
+
+        ut->current_coro->blocked = 1;
+        uv_read_start(stream->stream, ulver_reader_alloc, ulver_reader_switch_cb);
+
+        ulver_coro_switch(env, ut->hub);
+
+	ulver_object *ret = ulver_object_from_string(env, uvr->buf, uvr->len);
+
+	env->free(env, ->buf, amount->n);
+
+        return ret;
+}
+
+
+
+static void ulver_writer_switch_cb(uv_write_t* handle, int status) {
+        ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
+        ulver_env *env = uvs->env;
+        uvs->coro->blocked = 0;
+        // back to coro
+        ulver_coro_switch(env, uvs->coro);
 }
 
 ulver_object *ulver_fun_write_string(ulver_env *env, ulver_form *argv) {
@@ -31,20 +85,13 @@ ulver_object *ulver_fun_write_string(ulver_env *env, ulver_form *argv) {
 
 	ulver_thread *ut = ulver_current_thread(env);
 
-	ulver_uv_writer *uvw = env->alloc(env, sizeof(ulver_uv_writer));
-	uvw->env = env;
-	uvw->ut = ut;
-	uvw->stream = stream;
-	uvw->coro = ut->current_coro;
-	stream->writer.data = uvw;
-
 	ut->current_coro->blocked = 1;
 	stream->ubuf.base = body->str;
 	stream->ubuf.len = body->len;
 	uv_write(&stream->writer, stream->stream, &stream->ubuf, 1, ulver_writer_switch_cb);	
 
 	ulver_coro_switch(env, ut->hub);	
-	
+
 	return body;
 }
 
@@ -104,19 +151,10 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 
 }
 
-typedef struct ulver_uv_tcp ulver_uv_tcp;
-struct ulver_uv_tcp {
-	uv_tcp_t t;
-	ulver_env *env;
-	ulver_thread *ut;
-	ulver_coro *coro;
-	ulver_object *func;
-};
-
-static void free_uv_tcp(uv_handle_t* handle) {
-	ulver_uv_tcp *utcp = (ulver_uv_tcp *) handle->data;
-        ulver_env *env = utcp->env;
-        env->free(env, utcp, sizeof(ulver_uv_tcp));
+static void free_uv_stream(uv_handle_t* handle) {
+	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
+        ulver_env *env = uvs->env;
+        env->free(env, uvs, sizeof(ulver_uv_stream));
 }
 
 static void tcp_client(ulver_env *env, ulver_uv_tcp *client) {

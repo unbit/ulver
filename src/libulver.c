@@ -1,6 +1,7 @@
 #include <ulver.h>
 
 ulver_object *ulver_fun_write_string(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_read_string(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_hub(ulver_env *, ulver_form *);
 
@@ -1297,7 +1298,6 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 
 ulver_object *ulver_call0(ulver_env *env, ulver_object *func) {
 	if (!func || func->type != ULVER_FUNC) return ulver_error(env, "object is not a function");
-	printf("CALL !!!\n");
 	return call_do(env, func, NULL);
 }
 
@@ -1884,6 +1884,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "coro-yield", ulver_fun_coro_yield);
 
         ulver_register_fun(env, "write-string", ulver_fun_write_string);
+        ulver_register_fun(env, "read-string", ulver_fun_read_string);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
 
