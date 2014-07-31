@@ -31,6 +31,7 @@
 #define ULVER_MULTIVALUE 11
 #define ULVER_CORO 12
 #define ULVER_CORO_DEAD 13
+#define ULVER_HASHTABLE 14
 #define ULVER_TRUE 255
 
 typedef struct ulver_env ulver_env;
@@ -185,6 +186,8 @@ struct ulver_object_item {
 // in a specific coro
 struct ulver_uv_stream {
         union {
+		uv_handle_t h;
+		uv_process_t p;
                 uv_stream_t s;
                 uv_tcp_t tcp;
                 uv_udp_t udp;

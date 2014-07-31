@@ -318,3 +318,32 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
         oc->coro = coro;
         return oc;
 }
+
+/*
+ulver_object *ulver_fun_make_pipe(ulver_env *env, ulver_form *argv) {
+	if (!argv) ulver_error(env, "make-pipe requires an argument");
+	ulver_object *cmd = ulver_eval(env, argv);
+	if (!cmd) return NULL;
+	if (cmd->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+
+	// ensure the hub is running
+	ulver_hub(env);
+
+	ulver_thread *ut = ulver_current_thread(env);
+
+	uv_process_options_t options;
+	uv_stdio_container_t stdio[2];
+
+	uv_pipe_init(ut->hub_loop, &out, 0);
+	uv_pipe_init(ut->hub_loop, &in, 0);
+
+	options.stdio = stdio;
+  	options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+	options.stdio[0].data.stream = (uv_stream_t*)&in;
+	options.stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
+	options.stdio[1].data.stream = (uv_stream_t*)&out;
+	options.stdio_count = 2;
+
+	uv_spawn(loop, &process, &options);
+}
+*/

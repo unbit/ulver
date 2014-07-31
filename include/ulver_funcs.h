@@ -2,6 +2,10 @@
 
 ulver_object *ulver_fun_open(ulver_env *, ulver_form *);
 
+ulver_object *ulver_fun_make_hash_table(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_gethash(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_sethash(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_add(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_sub(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_mul(ulver_env *, ulver_form *);

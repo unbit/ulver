@@ -837,6 +837,9 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 	else if (uo->type == ULVER_CORO) {
         	printf("#<CORO %p>", uo->coro);
         }
+	else if (uo->type == ULVER_HASHTABLE) {
+        	printf("#<HASH-TABLE %p>", uo->map);
+        }
 	else if (uo->type == ULVER_FORM) {
 		printf("\n");
 		ulver_utils_print_form(env, uo->form);
@@ -1656,6 +1659,10 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "write-string", ulver_fun_write_string);
         ulver_register_fun(env, "read-string", ulver_fun_read_string);
+
+        ulver_register_fun(env, "make-hash-table", ulver_fun_make_hash_table);
+        ulver_register_fun(env, "gethash", ulver_fun_gethash);
+        ulver_register_fun(env, "sethash", ulver_fun_sethash);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
 

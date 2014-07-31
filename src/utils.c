@@ -58,6 +58,9 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
 		else if (item->o->type == ULVER_CORO) {
                         printf("#<CORO %p>", item->o->coro);
                 }
+		else if (item->o->type == ULVER_HASHTABLE) {
+                        printf("#<HASH-TABLE %p>", item->o->map);
+                }
 		else {
                 	printf("?%.*s?", (int) item->o->len, item->o->str);
 		}
