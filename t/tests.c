@@ -268,4 +268,7 @@ void tests() {
 		"(setq coro3 (make-coro () (progn (coro-yield 5)(coro-yield 6)(coro-yield 7))))"
 		"(+ (coro-next coro1)(coro-next coro2)(coro-next coro3)(coro-next coro1)(coro-next coro2)(coro-next coro3) -2)", 17);
 
+	test_string("(string-upcase \"hello\")", "HELLO");
+	test_string("(string-downcase \"hEllO\")", "hello");
+
 }
