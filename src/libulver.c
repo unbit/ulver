@@ -1,17 +1,4 @@
-#include <ulver.h>
-
-ulver_object *ulver_fun_write_string(ulver_env *, ulver_form *);
-ulver_object *ulver_fun_read_string(ulver_env *, ulver_form *);
-
-ulver_object *ulver_fun_hub(ulver_env *, ulver_form *);
-
-ulver_object *ulver_fun_make_coro(ulver_env *, ulver_form *);
-ulver_object *ulver_fun_sleep(ulver_env *, ulver_form *);
-ulver_object *ulver_fun_make_tcp_server(ulver_env *, ulver_form *);
-
-ulver_object *ulver_fun_coro_switch(ulver_env *, ulver_form *);
-ulver_object *ulver_fun_coro_yield(ulver_env *, ulver_form *);
-ulver_object *ulver_fun_coro_next(ulver_env *, ulver_form *);
+#include <ulver_funcs.h>
 
 ulver_object *ulver_fun_all_threads(ulver_env *env, ulver_form *argv) {
 	ulver_object *threads = ulver_object_new(env, ULVER_LIST);
@@ -162,10 +149,10 @@ ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
                 if (!stream) return NULL;
                 if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
         }
-	if (stream->closed) return ulver_error(env, "stream is closed");
+	//if (stream->closed) return ulver_error(env, "stream is closed");
         uint64_t slen = 0;
-        char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
-        if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
+        char *buf = NULL;//ulver_utils_readline_from_fd(stream->fd, &slen);
+        //if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
         ulver_form *uf = ulver_parse(env, buf, slen);
         free(buf);
 	if (!uf) return ulver_error(env, "unable to parse");
@@ -551,7 +538,7 @@ ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
 	if (fd < 0) {
 		return ulver_error(env, "unable to open file");
 	}
-        return ulver_object_from_fd(env, fd);
+        return env->nil;//ulver_object_from_fd(env, fd);
 }
 
 ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
@@ -605,149 +592,6 @@ ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
 	ulver_thread *ut = ulver_current_thread(env);
 	ut->current_coro->trigger_gc = 1;
 	return ulver_object_from_num(env, env->mem);
-}
-
-ulver_object *ulver_fun_mod(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "mod requires two arguments");
-	ulver_object *uo1 = ulver_eval(env, argv);
-	if (!uo1) return NULL;
-	int64_t n1 = 0;
-	if (uo1->type == ULVER_NUM) n1 = uo1->n;
-	else if (uo1->type == ULVER_FLOAT) n1 = uo1->d;	
-	else return ulver_error_form(env, argv, "is not a number");
-
-	ulver_object *uo2 = ulver_eval(env, argv->next);
-	if (!uo2) return NULL;
-	int64_t n2 = 0;
-        if (uo2->type == ULVER_NUM) n2 = uo2->n;
-        else if (uo2->type == ULVER_FLOAT) n2 = uo2->d;
-        else return ulver_error_form(env, argv->next, "is not a number");
-
-	if (n2 == 0) return ulver_error(env, "division by zero");
-	
-        return ulver_object_from_num(env, n1 % n2);
-}
-
-ulver_object *ulver_fun_add(ulver_env *env, ulver_form *argv) {
-        int64_t n = 0;
-	double d = 0.0;
-	uint8_t is_float = 0;
-	while(argv) {
-		ulver_object *uo = ulver_eval(env, argv);
-		if (!uo) return NULL;
-		if (uo->type == ULVER_NUM) {
-			n += uo->n;
-		}
-		else if (uo->type == ULVER_FLOAT) {
-			is_float = 1;
-			d += uo->d;
-		}
-		else {
-			return ulver_error_form(env, argv, "argument is not a number or a float"); 
-		}
-		argv = argv->next;
-	}
-
-	if (is_float) {
-        	return ulver_object_from_float(env, d+n);
-	}
-        return ulver_object_from_num(env, n);
-}
-
-ulver_object *ulver_fun_sub(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "- requires an argument");
-	int64_t n = 0;
-        double d = 0.0;
-        uint8_t is_float = 0;
-	ulver_form *item = argv->next;
-        while(item) {
-                ulver_object *uo = ulver_eval(env, item);
-                if (!uo) return NULL;
-                if (uo->type == ULVER_NUM) {
-                        n += uo->n;
-                }
-                else if (uo->type == ULVER_FLOAT) {
-                        is_float = 1;
-                        d += uo->d;
-                }
-                else {
-                        return ulver_error_form(env, item, "argument is not a number or a float");
-                }
-                item = item->next;
-        }
-
-        if (is_float) {
-		ulver_object *uo = ulver_eval(env, argv);
-		if (!uo) return NULL;
-		if (uo->type == ULVER_NUM) {
-                	return ulver_object_from_float(env, uo->n - (d+n));
-		}
-		else if (uo->type == ULVER_FLOAT) {
-                	return ulver_object_from_float(env, uo->d - (d+n));
-		}
-		return ulver_error_form(env, argv, "argument is not a number or a float");
-        }
-
-	ulver_object *uo = ulver_eval(env, argv);
-        if (!uo) return NULL;
-        if (uo->type == ULVER_NUM) {
-        	return ulver_object_from_num(env, argv->next ? uo->n - n :  - uo->n);
-        }
-        else if (uo->type == ULVER_FLOAT) {
-        	return ulver_object_from_float(env, argv->next ? uo->d - n: - uo->d);
-        }
-        return ulver_error_form(env, argv, "argument is not a number or a float");
-}
-
-
-ulver_object *ulver_fun_mul(ulver_env *env, ulver_form *argv) {
-	int64_t n = 1;
-        double d = 1.0;
-        uint8_t is_float = 0;
-        while(argv) {
-                ulver_object *uo = ulver_eval(env, argv);
-                if (!uo) return NULL;
-                if (uo->type == ULVER_NUM) {
-                        n *= uo->n;
-                }
-                else if (uo->type == ULVER_FLOAT) {
-                        is_float = 1;
-                        d *= uo->d;
-                }
-                else {
-                        return ulver_error_form(env, argv, "argument is not a number or a float");
-                }
-                argv = argv->next;
-        }
-
-        if (is_float) {
-                return ulver_object_from_float(env, d*n);
-        }
-        return ulver_object_from_num(env, n);
-}
-
-// TODO fix it
-ulver_object *ulver_fun_higher(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "higher requires an argument");	
-	ulver_object *uo0 = ulver_eval(env, argv);
-	if (!uo0) return NULL;
-	ulver_object *uo1 = ulver_eval(env, argv->next);
-	if (!uo1) return NULL;
-	int64_t n0 = uo0->n;
-	int64_t n1 = uo1->n;
-	return n0 > n1 ? env->t : env->nil;
-}
-
-// TODO fix it
-ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "higher requires an argument");	
-	ulver_object *uo0 = ulver_eval(env, argv);
-	if (!uo0) return NULL;
-	ulver_object *uo1 = ulver_eval(env, argv->next);
-	if (!uo1) return NULL;
-	int64_t n0 = uo0->n;
-	int64_t n1 = uo1->n;
-	return n0 == n1 ? env->t : env->nil;
 }
 
 ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) {
@@ -933,53 +777,17 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
         return uo;
 }
 
-ulver_object *ulver_fun_socket_listen(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "socket-listen requires an argument");
-	ulver_object *host = ulver_eval(env, argv);
-	if (!host) return NULL;
-	if (host->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
-	struct hostent *he = gethostbyname(host->str);
-	if (!he) return ulver_error_form(env, argv, "unable to resolve");
-	int s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s < 0) return ulver_error(env, "unable to create socket");
-	struct sockaddr_in sin;
-	memset(&sin, 0, sizeof(struct sockaddr_in));
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(9191);
-	memcpy(&sin.sin_addr, he->h_addr_list[0], 4);
-	if (bind(s, (struct sockaddr *) &sin, sizeof(struct sockaddr_in))) {
-		close(s);
-		return ulver_error(env, "unable to bind socket");
-	}
-	if (listen(s, 100)) {
-		close(s);
-		return ulver_error(env, "unable to put socket in listen state");
-	}
-	return ulver_object_from_fd(env, s);	
-}
-
-ulver_object *ulver_fun_socket_accept(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "socket-accept requires an argument");
-        ulver_object *stream = ulver_eval(env, argv);
-        if (!stream) return NULL;
-        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
-        if (stream->closed) return ulver_error(env, "stream is closed");
-	int fd = accept(stream->fd, NULL, NULL);
-        if (fd < 0) {
-                return ulver_error(env, "accept() error");
-        }
-        return ulver_object_from_fd(env, fd);
-}
-
 ulver_object *ulver_fun_close(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "close requires an argument");
 	ulver_object *stream = ulver_eval(env, argv);
         if (!stream) return NULL;
         if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+/*
 	if (stream->closed) {
 		return env->nil;
 	}
-	stream->closed = 1;
+*/
+	//stream->closed = 1;
 	return env->t;
 }
 
@@ -990,10 +798,10 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 		if (!stream) return NULL;
 		if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
 	}
-	if (stream->closed) return ulver_error(env, "stream is closed");
+	//if (stream->closed) return ulver_error(env, "stream is closed");
 	uint64_t slen = 0;
-	char *buf = ulver_utils_readline_from_fd(stream->fd, &slen);
-	if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
+	char *buf = NULL;//ulver_utils_readline_from_fd(stream->fd, &slen);
+	//if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
 	ulver_object *s = ulver_object_from_string(env, buf, slen);
 	free(buf);
 	return s;
@@ -1047,7 +855,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_STREAM) {
-        	printf("#<STREAM fd:%d>", uo->fd);
+        	printf("#<STREAM %p>", uo->stream);
         }
 	else if (uo->type == ULVER_THREAD) {
         	printf("#<THREAD %p>", uo->thread);
@@ -1153,8 +961,8 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 	}
 
 	if (uo->type == ULVER_STREAM) {
-		if (!uo->closed) {
-			close(uo->fd);
+		if (uo->stream) {
+			env->free(env, uo->stream, sizeof(ulver_uv_stream));
 		}
 	}
 
@@ -1178,12 +986,6 @@ ulver_object *ulver_object_from_num(ulver_env *env, int64_t n) {
 ulver_object *ulver_object_from_float(ulver_env *env, double n) {
         ulver_object *uo = ulver_object_new(env, ULVER_FLOAT);
         uo->d = n;
-        return uo;
-}
-
-ulver_object *ulver_object_from_fd(ulver_env *env, int fd) {
-        ulver_object *uo = ulver_object_new(env, ULVER_STREAM);
-	uo->fd = fd;
         return uo;
 }
 
@@ -1793,8 +1595,8 @@ ulver_env *ulver_init() {
         env->nil->gc_protected = 1;
 	ulver_symbol_set(env, "nil", 3, env->nil);
 
-        env->stdin = ulver_object_from_fd(env, 0);
-        env->stdin->gc_protected = 1;
+        //env->stdin = ulver_object_from_fd(env, 0);
+        //env->stdin->gc_protected = 1;
 
 	// 30 megs memory limit before triggering gc
 	env->max_memory = 30 * 1024 * 1024;
@@ -1872,9 +1674,6 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "open", ulver_fun_open);
         ulver_register_fun(env, "close", ulver_fun_close);
-
-        ulver_register_fun(env, "socket-listen", ulver_fun_socket_listen);
-        ulver_register_fun(env, "socket-accept", ulver_fun_socket_accept);
 
         ulver_register_fun(env, "make-tcp-server", ulver_fun_make_tcp_server);
 

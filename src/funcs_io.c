@@ -1,27 +1,10 @@
 #include <ulver.h>
 
-typedef struct ulver_uv_stream ulver_uv_stream;
-struct ulver_uv_stream {
-	union {
-		uv_stream_t s;
-        	uv_tcp_t tcp;
-        	uv_udp_t udp;
-        	uv_tty_t tty;
-	} handle;
-	uv_write_t writer;
-        ulver_env *env;
-        ulver_thread *ut;
-        ulver_coro *coro;
-        ulver_object *func;
-        char *buf;
-        uint64_t len;
-};
-
 static uv_buf_t ulver_reader_alloc(uv_handle_t *handle, size_t suggested_size) {
 	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
         ulver_env *env = uvs->env;
 	uv_buf_t buf;
-	buf.base = env->alloc(env, suggested_size);
+	buf.base = env->alloc(env, uvs->len);
 	buf.len = uvs->len;
 	return buf;
 }
@@ -33,7 +16,6 @@ static void ulver_reader_switch_cb(uv_stream_t* handle, ssize_t nread, uv_buf_t 
         // back to coro
 	uvs->buf = buf.base;
 	uvs->len = buf.len;
-	uv_read_stop(handle);
         ulver_coro_switch(env, uvs->coro);
 }
 
@@ -51,13 +33,17 @@ ulver_object *ulver_fun_read_string(ulver_env *env, ulver_form *argv) {
         ulver_thread *ut = ulver_current_thread(env);
 
         ut->current_coro->blocked = 1;
-        uv_read_start(stream->stream, ulver_reader_alloc, ulver_reader_switch_cb);
+	ulver_uv_stream *uvs = stream->stream;
+	uvs->len = amount->n;
+        uv_read_start(&uvs->handle.s, ulver_reader_alloc, ulver_reader_switch_cb);
 
         ulver_coro_switch(env, ut->hub);
 
-	ulver_object *ret = ulver_object_from_string(env, uvr->buf, uvr->len);
+	uv_read_stop(&uvs->handle.s);
 
-	env->free(env, ->buf, amount->n);
+	ulver_object *ret = ulver_object_from_string(env, uvs->buf, uvs->len);
+
+	env->free(env, uvs->buf, amount->n);
 
         return ret;
 }
@@ -73,6 +59,7 @@ static void ulver_writer_switch_cb(uv_write_t* handle, int status) {
 }
 
 ulver_object *ulver_fun_write_string(ulver_env *env, ulver_form *argv) {
+	printf("READY TO WRITE STRING\n");
         if (!argv || !argv->next) return ulver_error(env, "write-string requires two arguments");
 
 	ulver_object *stream = ulver_eval(env, argv);
@@ -86,9 +73,13 @@ ulver_object *ulver_fun_write_string(ulver_env *env, ulver_form *argv) {
 	ulver_thread *ut = ulver_current_thread(env);
 
 	ut->current_coro->blocked = 1;
-	stream->ubuf.base = body->str;
-	stream->ubuf.len = body->len;
-	uv_write(&stream->writer, stream->stream, &stream->ubuf, 1, ulver_writer_switch_cb);	
+	ulver_uv_stream *uvs = stream->stream;
+	uvs->wbuf.base = body->str;
+	uvs->wbuf.len = body->len;
+	uvs->writer.data = uvs;
+	uv_write(&uvs->writer, &uvs->handle.s, &uvs->wbuf, 1, ulver_writer_switch_cb);	
+
+	printf("switch to hub again\n");
 
 	ulver_coro_switch(env, ut->hub);	
 
@@ -110,11 +101,13 @@ static void free_uv_timer(uv_handle_t* handle) {
 } 
 
 static void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
+	printf("TIMER ELAPSED\n");
         ulver_uv_timer *uvt = (ulver_uv_timer *) handle->data;
 	ulver_env *env = uvt->env;
         ulver_hub_schedule_waiters(env, uvt->ut, uvt->coro);
         uvt->coro->blocked = 0;
         // back to coro
+	printf("BACK TO CORO %p\n", uvt->coro);
         ulver_coro_switch(env, uvt->coro);
         uv_timer_stop(&uvt->t);
 	// schedule memory free
@@ -151,24 +144,24 @@ ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
 
 }
 
-static void free_uv_stream(uv_handle_t* handle) {
-	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
-        ulver_env *env = uvs->env;
-        env->free(env, uvs, sizeof(ulver_uv_stream));
+static void tcp_closed(uv_handle_t* handle) {
+	printf("TCP CLOSED\n");
 }
 
-static void tcp_client(ulver_env *env, ulver_uv_tcp *client) {
+static void tcp_client(ulver_env *env, ulver_uv_stream *stream) {
 	ulver_object *uo = ulver_object_new(env, ULVER_STREAM);
-	uo->stream = (uv_stream_t *) &client->t;
+	uo->stream = stream;
 
 	// set the first lambda symbol (if any)
-	if (client->func->lambda_list) {
-		ulver_symbol_set(env, client->func->lambda_list->value, client->func->lambda_list->len, uo);
+	if (stream->func->lambda_list) {
+		ulver_symbol_set(env, stream->func->lambda_list->value, stream->func->lambda_list->len, uo);
 	}
-	client->coro->ret = ulver_call0(env, client->func);
+	stream->coro->ret = ulver_call0(env, stream->func);
+	printf("END OF THE CORO !!!\n");
 	// close the connection
-	uv_close((uv_handle_t *) &client->t, free_uv_tcp);
-	ulver_coro_switch(env, client->ut->hub);
+	uv_close((uv_handle_t *) &stream->handle.s, tcp_closed);
+	printf("switching back to HUB !!!\n");
+	ulver_coro_switch(env, stream->ut->hub);
 }
 
 /*
@@ -176,25 +169,24 @@ static void tcp_client(ulver_env *env, ulver_uv_tcp *client) {
 	calling the server hook function getting the new client stream as argument
 */
 static void tcp_server_on_connect(uv_stream_t* handle, int status) {
-	ulver_uv_tcp *utcp = (ulver_uv_tcp *) handle->data;
-	ulver_coro_switch(utcp->env, utcp->coro);
+	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
+	ulver_coro_switch(uvs->env, uvs->coro);
 }
 
-static void tcp_server(ulver_env *env, ulver_uv_tcp *utcp) {
+static void tcp_server(ulver_env *env, ulver_uv_stream *uvs) {
 	ulver_thread *ut = ulver_current_thread(env);
-        uv_listen((uv_stream_t *) &utcp->t, 128, tcp_server_on_connect);
-	printf("the tcp server %p\n", utcp);
+        uv_listen(&uvs->handle.s, 128, tcp_server_on_connect);
 	ulver_coro_switch(env, ut->hub);
 	// here we create a new coro for each connection
 	for(;;) {
-		ulver_uv_tcp *client = env->alloc(env, sizeof(ulver_uv_tcp));
+		printf("A CONNECTION !!!!!!!!!!!!!!\n");
+		ulver_uv_stream *client = env->alloc(env, sizeof(ulver_uv_stream));
 		client->env = env;
 		client->ut = ut;
-		client->func = utcp->func;
-		uv_tcp_init(ut->hub_loop, &client->t);
-		client->t.data = client;
-		uv_accept((uv_stream_t *) &utcp->t, (uv_stream_t *) &client->t);
-		printf("a connection !!!\n");
+		client->func = uvs->func;
+		uv_tcp_init(ut->hub_loop, &client->handle.tcp);
+		client->handle.tcp.data = client;
+		uv_accept(&uvs->handle.s, &client->handle.s);
 		// generate the new coro
         	ulver_coro *coro = ulver_coro_new(env, tcp_client, client);
 
@@ -246,22 +238,22 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
 
 	ulver_thread *ut = ulver_current_thread(env);
 
-	ulver_uv_tcp *utcp = env->alloc(env, sizeof(ulver_uv_tcp));
-        uv_tcp_init(ut->hub_loop, &utcp->t);
-        utcp->env = env;
-        utcp->ut = ut;
-        utcp->func = on_client;
+	ulver_uv_stream *uvs = env->alloc(env, sizeof(ulver_uv_stream));
+        uv_tcp_init(ut->hub_loop, &uvs->handle.tcp);
+        uvs->env = env;
+        uvs->ut = ut;
+        uvs->func = on_client;
 
-        utcp->t.data = utcp;
+        uvs->handle.tcp.data = uvs;
 
         struct sockaddr_in address = uv_ip4_addr(addr->str, port->n);
-        uv_tcp_bind(&utcp->t, address);
+        uv_tcp_bind(&uvs->handle.tcp, address);
 
 	// generate the new coro
-        ulver_coro *coro = ulver_coro_new(env, tcp_server, utcp);
+        ulver_coro *coro = ulver_coro_new(env, tcp_server, uvs);
 
 	// map the coro to utcp
-	utcp->coro = coro;
+	uvs->coro = coro;
 
         // add the new coro
         if (!ut->coros) {

@@ -48,6 +48,7 @@ typedef struct ulver_thread ulver_thread;
 typedef struct ulver_message ulver_message;
 typedef struct ulver_coro ulver_coro;
 typedef struct ulver_scheduled_coro ulver_scheduled_coro;
+typedef struct ulver_uv_stream ulver_uv_stream;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -181,6 +182,26 @@ struct ulver_object_item {
 	ulver_object_item *next;	
 };
 
+// this structure is required for all
+// io/operations (as they generally live
+// in a specific coro
+struct ulver_uv_stream {
+        union {
+                uv_stream_t s;
+                uv_tcp_t tcp;
+                uv_udp_t udp;
+                uv_tty_t tty;
+        } handle;
+        uv_write_t writer;
+	uv_buf_t wbuf;
+        ulver_env *env;
+        ulver_thread *ut;
+        ulver_coro *coro;
+        ulver_object *func;
+        char *buf;
+        uint64_t len;
+};
+
 struct ulver_object {
         uint8_t type; // list, func, num, string
         uint64_t len;
@@ -197,20 +218,16 @@ struct ulver_object {
 	ulver_symbolmap *map;
 	ulver_form *form;
 	ulver_thread *thread;
+	ulver_coro *coro;
 	ulver_message *msg_head;
 	ulver_message *msg_tail;
 	ulver_object *stack_next;
 	uint8_t unsafe;
 	uint8_t _return;
-	int fd;
-	uv_stream_t *stream;
-	uv_write_t writer;
-	uv_buf_t ubuf;
-	uint8_t closed;
-	ulver_coro *coro;
 	void *data;
 	void (*on_destroy)(ulver_object *);
 	uint8_t no_lambda;
+	ulver_uv_stream *stream;
 };
 
 struct ulver_form {
@@ -222,6 +239,7 @@ struct ulver_form {
         ulver_form *list;
 	uint64_t line;
 	uint64_t line_pos;
+	uint64_t need_free;
 };
 
 struct ulver_symbolmap {
@@ -257,7 +275,6 @@ ulver_object *ulver_object_from_num(ulver_env *, int64_t);
 ulver_object *ulver_object_from_float(ulver_env *, double);
 ulver_object *ulver_object_from_string(ulver_env *, char *, uint64_t);
 ulver_object *ulver_object_from_keyword(ulver_env *, char *, uint64_t);
-ulver_object *ulver_object_from_fd(ulver_env *, int);
 ulver_symbol *ulver_symbol_set(ulver_env *, char *, uint64_t, ulver_object *);
 ulver_object *ulver_symbol_get(ulver_env *, char *, uint64_t);
 ulver_object *ulver_eval(ulver_env *, ulver_form *);

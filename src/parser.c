@@ -39,7 +39,51 @@ void ulver_form_destroy(ulver_env *env, ulver_form *uf) {
 		ulver_form_destroy(env, list);
 		list = next;
 	}
+	if (uf->need_free) {
+		env->free(env, uf->value, uf->need_free);
+	}
 	env->free(env, uf, sizeof(ulver_form));
+}
+
+char *decode_string(ulver_env *env, char *s, uint64_t len, uint64_t *new_len) {
+	char *dst = env->alloc(env, len);
+	char *ptr = dst;
+	uint8_t escaped = 0;
+	uint64_t i;
+	for(i=0;i<len;i++) {
+		if (!escaped) {
+			if (s[i] == '\\') {
+				escaped = 1;
+				continue;
+			}
+			*ptr++= s[i];
+			continue;
+		}
+		switch(s[i]) {
+			case 'n':
+				*ptr++= '\n';
+				break;
+			case 'r':
+				*ptr++= '\r';
+				break;
+			case 't':
+				*ptr++= '\t';
+				break;
+			case 'a':
+				*ptr++= '\a';
+				break;
+			case '0':
+				*ptr++= '\0';
+				break;
+			default:
+				*ptr++= s[i];
+				break;
+		}
+		escaped = 0;
+	}
+
+	*new_len = ptr - dst;
+	return dst;
 }
 
 ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
@@ -60,8 +104,16 @@ ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
                 	type = ULVER_FLOAT;
 		}
         	uf = ulver_form_push(env, us, type);
-                uf->value = us->token;
-                uf->len = us->token_len;
+		if (!us->is_doublequoted) {
+                	uf->value = us->token;
+                	uf->len = us->token_len;
+		}
+		else {
+			uint64_t new_len = 0;
+			uf->value = decode_string(env, us->token, us->token_len, &new_len);
+			uf->need_free = uf->len ;
+			uf->len = new_len;
+		}
 		uf->line = us->lines;
 		uf->line_pos = us->line_pos - us->token_len;
 	}
