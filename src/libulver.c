@@ -515,32 +515,6 @@ next:
 	return package;
 }
 
-ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "open requires an argument");
-        ulver_object *uo = ulver_eval(env, argv);
-        if (!uo) return NULL;
-        if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string");
-	int mode = O_RDONLY;
-	if (argv->next) {
-		ulver_form *direction = argv->next;
-		if (direction->type != ULVER_KEYWORD) return ulver_error_form(env, direction, "must be a keyword");
-		if (direction->len == 6 && !ulver_utils_memicmp(direction->value, ":input", 6)) {
-			mode = O_RDONLY;
-		}
-		else if (direction->len == 7 && !ulver_utils_memicmp(direction->value, ":output", 7)) {
-			mode = O_WRONLY;
-		}
-		else if (direction->len == 3 && !ulver_utils_memicmp(direction->value, ":io", 3)) {
-			mode = O_WRONLY;
-		}
-	}
-	int fd = open(uo->str, mode);
-	if (fd < 0) {
-		return ulver_error(env, "unable to open file");
-	}
-        return env->nil;//ulver_object_from_fd(env, fd);
-}
-
 ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "load requires an argument");
 	ulver_object *uo = ulver_eval(env, argv);
@@ -855,7 +829,7 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 		printf("\n#<PACKAGE %.*s> ", (int) uo->len, uo->str);
 	}
 	else if (uo->type == ULVER_STREAM) {
-        	printf("#<STREAM %p>", uo->stream);
+        	printf("#<STREAM %s>", uo->stream ? "-" : uo->file.path);
         }
 	else if (uo->type == ULVER_THREAD) {
         	printf("#<THREAD %p>", uo->thread);

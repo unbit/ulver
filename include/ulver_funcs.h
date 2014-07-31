@@ -1,5 +1,7 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_open(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_add(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_sub(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_mul(ulver_env *, ulver_form *);

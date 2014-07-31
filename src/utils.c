@@ -50,7 +50,7 @@ void ulver_utils_print_list(ulver_env *env, ulver_object *uo) {
                         printf("#<PACKAGE %.*s>", (int) item->o->len, item->o->str);
                 }
 		else if (item->o->type == ULVER_STREAM) {
-                        printf("#<STREAM %p>", item->o->stream);
+                        printf("#<STREAM %s>", item->o->stream ? "-" : item->o->file.path);
                 }
 		else if (item->o->type == ULVER_THREAD) {
                         printf("#<THREAD %p>", item->o->thread);

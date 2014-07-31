@@ -72,6 +72,7 @@ struct ulver_source {
 	uint8_t is_doublequoted;
 	uint8_t is_escaped;
 	uint8_t is_comment;
+	uint8_t requires_decoding;
 };
 
 struct ulver_scheduled_coro {
@@ -227,6 +228,7 @@ struct ulver_object {
 	void *data;
 	void (*on_destroy)(ulver_object *);
 	uint8_t no_lambda;
+	uv_fs_t file;
 	ulver_uv_stream *stream;
 };
 

@@ -1,5 +1,35 @@
 #include <ulver.h>
 
+ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "open requires an argument");
+        ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string");
+        int mode = O_RDONLY;
+        if (argv->next) {
+                ulver_form *direction = argv->next;
+                if (direction->type != ULVER_KEYWORD) return ulver_error_form(env, direction, "must be a keyword");
+                if (direction->len == 6 && !ulver_utils_memicmp(direction->value, ":input", 6)) {
+                        mode = O_RDONLY;
+                }
+                else if (direction->len == 7 && !ulver_utils_memicmp(direction->value, ":output", 7)) {
+                        mode = O_WRONLY;
+                }
+                else if (direction->len == 3 && !ulver_utils_memicmp(direction->value, ":io", 3)) {
+                        mode = O_WRONLY;
+                }
+        }
+	// ensure the hub is running
+	ulver_hub(env);
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_object *stream = ulver_object_new(env, ULVER_STREAM);
+	if (uv_fs_open(ut->hub_loop, &stream->file, uo->str, mode, 0, NULL) < 0) {
+                return ulver_error(env, "unable to open file");
+        }
+        return stream;
+}
+
+
 static uv_buf_t ulver_reader_alloc(uv_handle_t *handle, size_t suggested_size) {
 	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
         ulver_env *env = uvs->env;

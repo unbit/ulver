@@ -104,21 +104,22 @@ ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
                 	type = ULVER_FLOAT;
 		}
         	uf = ulver_form_push(env, us, type);
-		if (!us->is_doublequoted) {
-                	uf->value = us->token;
-                	uf->len = us->token_len;
-		}
-		else {
+		if (us->is_doublequoted && us->requires_decoding) {
 			uint64_t new_len = 0;
 			uf->value = decode_string(env, us->token, us->token_len, &new_len);
 			uf->need_free = uf->len ;
 			uf->len = new_len;
+		}
+		else {
+                	uf->value = us->token;
+                	uf->len = us->token_len;
 		}
 		uf->line = us->lines;
 		uf->line_pos = us->line_pos - us->token_len;
 	}
         us->token = NULL;
 	us->token_len = 0;
+	us->requires_decoding = 0;
 	return uf;
 }
 
@@ -154,6 +155,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	source->line_pos = 0;
 	source->is_escaped = 0;
 	source->is_comment = 0;
+	source->requires_decoding = 0;
 
 	for(source->pos=0;source->pos<len;source->pos++) {
 		char c = buf[source->pos];
@@ -185,6 +187,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 			if (c == '\\') {
 				source->is_escaped = 1;
+				source->requires_decoding = 1;
 				continue;
 			}	
 
