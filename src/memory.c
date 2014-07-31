@@ -140,6 +140,8 @@ static void mark_coro(ulver_env *env, ulver_coro *coro) {
 // this function MUST be always called with gc_lock held
 void ulver_gc(ulver_env *env) {
 
+	printf("entering GC\n");
+
 	uint64_t i;
 
 	env->gc_rounds++;
@@ -169,6 +171,7 @@ void ulver_gc(ulver_env *env) {
 
 	// iterate over threads stack frames
 	//pthread_rwlock_rdlock(&env->threads_lock);
+	printf("scanning threads\n");
 	ut = env->threads;
 	while(ut) {
 		// lock the thread (it could be running)

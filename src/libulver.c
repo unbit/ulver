@@ -1012,48 +1012,65 @@ ulver_object *ulver_eval_list(ulver_env *env, ulver_form *uf) {
 }
 
 struct ulver_thread_args {
+	ulver_object *to;
 	ulver_env *env;
 	ulver_form *argv;
 };
 
 void *run_new_thread(void *arg) {
 	struct ulver_thread_args *uta = (struct ulver_thread_args *) arg;
+	ulver_object *to = uta->to;
 	ulver_env *env = uta->env;
 	ulver_form *argv = uta->argv;
-	free(uta);
+	env->free(env, uta, sizeof(struct ulver_thread_args));
         // this will create the memory structures
         // for the new thread
         ulver_thread *ut = ulver_current_thread(env);
 	ut->t = pthread_self();
-        ulver_object *ret = eval_do(env, ut, argv, 0);
+	to->thread = ut;
+        ut->ret = eval_do(env, ut, argv, 0);
 
         // the function ended
-        // as the error status is per-thread, we need to make
-        // something with the return value
+	// to get the return value we need to join the thread
         // ...
         // we can safely mark the thread as dead
         // (as the lock is still acquired);
 	ulver_report_error(env);
         ut->dead = 1;
-	printf("thread ended\n");
-        // return something ?
         return NULL;
 }
 
 ulver_object *ulver_fun_make_thread(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, "make-thread requires an argument");	
-        pthread_t t;
-	struct ulver_thread_args *uta = malloc(sizeof(struct ulver_thread_args));;
-	if (!uta) {
-		perror("malloc()");
-		exit(1);
-	}
+	ulver_object *thread = ulver_object_new(env, ULVER_THREAD);
+	pthread_t t;
+	struct ulver_thread_args *uta = env->alloc(env, sizeof(struct ulver_thread_args));
+	uta->to = thread;
 	uta->env = env;
 	uta->argv = argv;
         if (pthread_create(&t, NULL, run_new_thread, uta)) {
-		free(uta);
+		env->free(env, uta, sizeof(struct ulver_thread_args));
+		return ulver_error(env, "unable to spawn thread");
 	}
-        return env->nil;
+
+	// ok, we can now start polling for thread initialization
+	for(;;) {
+		if (thread->thread) break;
+	}
+        return thread;
+}
+
+ulver_object *ulver_fun_join_thread(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "join-thread requires an argument");
+	ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
+	if (uo->type != ULVER_THREAD) return ulver_error_form(env, argv, "is not a thread");
+	if (!uo->thread->dead) {
+		if (pthread_join(uo->thread->t, NULL)) {
+			return ulver_error(env, "unable to join thread");
+		}
+	}
+        return uo->thread->ret;
 }
 
 
@@ -1424,6 +1441,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "values", ulver_fun_values);
 
         ulver_register_fun(env, "make-thread", ulver_fun_make_thread);
+        ulver_register_fun(env, "join-thread", ulver_fun_join_thread);
         ulver_register_fun(env, "all-threads", ulver_fun_all_threads);
 
         ulver_register_fun(env, "sleep", ulver_fun_sleep);

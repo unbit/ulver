@@ -112,6 +112,7 @@ struct ulver_thread {
 	ulver_scheduled_coro *scheduled_coros_tail;
 	ulver_env *env;
 	ulver_coro *hub_creator;
+	ulver_object *ret;
 };
 
 struct ulver_message {
