@@ -19,6 +19,8 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 }
 
 void ulver_coro_free_context(ulver_env *env, void *ptr) {
+	ulver_coro_context *ucc = (ulver_coro_context *) ptr;
+	__splitstack_releasecontext(ucc->ss_contexts);
 	return env->free(env, ptr, sizeof(ulver_coro_context));
 }
 

@@ -87,7 +87,9 @@ nextcoro:
 
 uvrun:
 		if (blocked_coros) {
+			//printf("****************** ENTERING HUB *********************\n");
 			uv_run(ut->hub_loop, UV_RUN_ONCE);
+			//printf("****************** EXITING HUB *********************\n");
 		}
 		// if no more coros are running, end the hub
 		else {

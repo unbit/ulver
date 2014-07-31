@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
 
         ulver_env *env = ulver_init();
 	env->max_memory = 0;
-	env->gc_freq = 100000;
+	env->gc_freq = 100;
 
 	// REPL ?
 	if (argc < 2) {

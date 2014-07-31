@@ -7,7 +7,6 @@ static void coro_eval(ulver_env *env, ulver_form *argv) {
         ulver_coro *dead_coro = ut->current_coro;
         dead_coro->dead = 1;
         dead_coro->ret = ret;
-	printf("CORO %p IS DEAD\n", dead_coro);
         ulver_coro_switch(env, ut->hub);
         // never here !
 }

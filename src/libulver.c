@@ -934,10 +934,8 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 		ulver_symbolmap_destroy(env, uo->map);
 	}
 
-	if (uo->type == ULVER_STREAM) {
-		if (uo->stream) {
-			env->free(env, uo->stream, sizeof(ulver_uv_stream));
-		}
+	if (uo->stream) {
+		env->free(env, uo->stream, sizeof(ulver_uv_stream));
 	}
 
 	// free items
