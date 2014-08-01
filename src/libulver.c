@@ -1061,21 +1061,17 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
         }
 
 	// we use low-level emory allocation, as it will be freed soon
-        char *buf = malloc(st.st_size);
-        if (!buf) {
-		close(fd);
-		return ulver_error(env, "unable to malloc() for file %s: %s", filename, strerror(errno));
-        }
+        char *buf = env->alloc(env, st.st_size);
 
         ssize_t rlen = read(fd, buf, st.st_size);
 	close(fd);
         if (rlen != st.st_size) {
-		free(buf);
+		env->free(env, buf, st.st_size);
 		return ulver_error(env, "unable to read() file %s: %s", filename, strerror(errno));
         }
 
         ulver_form *uf = ulver_parse(env, buf, rlen);
-	free(buf);
+	env->free(env, buf, st.st_size);
 	ulver_object *ret = NULL;
         while(uf) {
 		ret = ulver_eval(env, uf);

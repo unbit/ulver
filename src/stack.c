@@ -111,7 +111,7 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
         if (!us) return NULL;
 
         // it is exported, let's prefix it (we use raw memory, as we will free it asap);
-        new_name = malloc(current_package->len + 1 + *len);
+        new_name = env->alloc(env, current_package->len + 1 + *len);
         memcpy(new_name, current_package->str, current_package->len);
         new_name[current_package->len] = ':';
         memcpy(new_name + current_package->len + 1, name, *len);
@@ -156,7 +156,7 @@ ulver_symbol *ulver_symbolmap_set(ulver_env *env, ulver_symbolmap *smap, char *n
 
         smap->items++;
 
-        if (new_name) free(new_name);
+        if (new_name) env->free(env, new_name, len);
         return us;
 }
 
@@ -177,13 +177,13 @@ ulver_symbol *ulver_symbolmap_get(ulver_env *env, ulver_symbolmap *smap, char *n
 	while(us) {
 		if (us->len == len) {
 			if (!ulver_utils_memicmp(us->name, name, len)) {
-				if (new_name) free(new_name);
+				if (new_name) env->free(env, new_name, len);
 				return us;
 			}
 		}
 		us = us->next;
 	}
-	if (new_name) free(new_name);
+	if (new_name) env->free(env, new_name, len);
 	return NULL;
 }
 
@@ -219,14 +219,14 @@ int ulver_symbolmap_delete(ulver_env *env, ulver_symbolmap *smap, char *name, ui
 				if (us->free_name) env->free(env, us->name, us->len+1);
 				env->free(env, us, sizeof(ulver_symbol));
 				smap->items--;
-				if (new_name) free(new_name);
+				if (new_name) env->free(env, new_name, len);
 				return 0;
                         }
                 }
                 us = us->next;
         }
 
-	if (new_name) free(new_name);
+	if (new_name) env->free(env, new_name, len);
 	return -1;	
 }
 
