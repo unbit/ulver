@@ -107,7 +107,7 @@ ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
 		if (us->is_doublequoted && us->requires_decoding) {
 			uint64_t new_len = 0;
 			uf->value = decode_string(env, us->token, us->token_len, &new_len);
-			uf->need_free = uf->len ;
+			uf->need_free = us->token_len ;
 			uf->len = new_len;
 		}
 		else {

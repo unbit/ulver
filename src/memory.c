@@ -19,6 +19,90 @@ void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 	pthread_mutex_unlock(&env->mem_lock);
 }
 
+void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
+	printf("destroying thread %p\n", ut);
+        // we are here when the thread is marked as dead.
+
+	pthread_rwlock_wrlock(&env->threads_lock);
+
+        ulver_thread *next = ut->next;
+        ulver_thread *prev = ut->prev;
+        if (next) {
+                next->prev = ut->prev;
+        }
+        if (prev) {
+                prev->next = ut->next;
+        }
+
+        if (ut == env->threads) {
+                env->threads = next;
+        }
+
+	pthread_rwlock_unlock(&env->threads_lock);
+
+        // consume the whole stack
+        ulver_coro *current_coro = ut->current_coro;
+        ut->current_coro = ut->main_coro;
+        while(ut->current_coro->stack) {
+                ulver_stack_pop(env, ut);
+        }
+
+        // hub ?
+        ulver_hub_destroy(env, ut);
+
+        ulver_coro_free_context(env, ut->main_coro->context);
+        env->free(env, ut->main_coro, sizeof(ulver_coro));
+
+        // and free its memory
+        env->free(env, ut, sizeof(ulver_thread));
+}
+
+
+void ulver_object_destroy(ulver_env *env, ulver_thread *ut, ulver_object *uo) {
+        ulver_object *prev = uo->gc_prev;
+        ulver_object *next = uo->gc_next;
+
+        if (next) {
+                next->gc_prev = prev;
+        }
+
+        if (prev) {
+                prev->gc_next = next;
+        }
+
+        if (uo == ut->gc_root) {
+                ut->gc_root = next;
+        }
+
+        if (uo->str) {
+                // strings memory area is zero-suffixed
+                env->free(env, uo->str, uo->len + 1);
+        }
+
+        if (uo->map) {
+                ulver_symbolmap_destroy(env, uo->map);
+        }
+
+        if (uo->stream) {
+                env->free(env, uo->stream, sizeof(ulver_uv_stream));
+        }
+
+        if (uo->thread) {
+                ulver_thread_destroy(env, uo->thread);
+        }
+
+        // free items
+        ulver_object_item *item = uo->list;
+        while(item) {
+                ulver_object_item *next = item->next;
+                env->free(env, item, sizeof(ulver_object_item));
+                item = next;
+        }
+
+        env->free(env, uo, sizeof(ulver_object));
+}
+
+
 static void mark_symbolmap(ulver_env *, ulver_symbolmap *);
 static void object_mark(ulver_env *env, ulver_object *uo) {
 	uo->gc_mark = 1;
@@ -75,105 +159,38 @@ static void destroy_coro(ulver_env *env, ulver_thread *ut, ulver_coro *coro) {
 	ut->current_coro = current_coro;
 }
 
-// this must be called with threads_lock acquired
-static void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
-        // we are here when the thread is marked as dead.
-        // its lock is acquired, so we are sure the gc will not run
-        // during this phase
-
-        ulver_thread *next = ut->next;
-        ulver_thread *prev = ut->prev;
-        if (next) {
-                next->prev = ut->prev;
-        }
-        if (prev) {
-                prev->next = ut->next;
-        }
-
-        if (ut == env->threads) {
-                env->threads = next;
-        }
-
-	// consume the whole stack
-	ulver_coro *current_coro = ut->current_coro;
-	ut->current_coro = ut->main_coro;
-	while(ut->current_coro->stack) {
-                ulver_stack_pop(env, ut);
-        }
-
-	// hub ?
-	ulver_hub_destroy(env, ut);
-
-	ulver_coro_free_context(env, ut->main_coro->context);
-	env->free(env, ut->main_coro, sizeof(ulver_coro));
-
-
-        // and free its memory
-        env->free(env, ut, sizeof(ulver_thread));
-
-	ut->current_coro = current_coro;
-}
-
 
 static void mark_coro(ulver_env *env, ulver_coro *coro) {
 	ulver_stackframe *stack = coro->stack;
-                        while(stack) {
-                                // iterate all locals
-                                mark_symbolmap(env, stack->locals);
-                                // iterate all objects
-                                ulver_object *so = stack->objects;
-                                while(so) {
-                                        object_mark(env, so);
-                                        so = so->stack_next;
-                                }
-                                // get the return value (if any)
-                                if (stack->ret) {
-                                        object_mark(env, stack->ret);
-                                }
-                                stack = stack->prev;
-                        }
-                        if (coro->ret) {
-                                object_mark(env, coro->ret);
-                        }
+        while(stack) {
+        	// iterate all locals
+                mark_symbolmap(env, stack->locals);
+                // iterate all objects
+                ulver_object *so = stack->objects;
+                while(so) {
+                	object_mark(env, so);
+                        so = so->stack_next;
+                }
+                // get the return value (if any)
+                if (stack->ret) {
+                	object_mark(env, stack->ret);
+                }
+                stack = stack->prev;
+	}
+        if (coro->ret) {
+        	object_mark(env, coro->ret);
+        }
 }
 
 /*
 	the ulver GC
 
-Each thread is free to run the gc, but based on the thread running
-it there will be different behaviours
-
-	- the main thread -
-
-	* scan and mark the whole list of coros stacks
-
-	* scan and mark globals
-
-	* scan and mark funcs
-
-	* scan and mark packages
-
-	* sweep thread object
-
-	* destroy all dead threads
-
-	- non-main threads -
-
-	* scan and mark the whole list of coros stacks
-
-	* scan and mark globals
-
-        * scan and mark funcs
-
-        * scan and mark packages
-
-	* sweep thread object
-
+Each thread is free to run the gc, there is no stop-the-world phase
 
 */
 void ulver_gc(ulver_env *env, ulver_thread *ut) {
 
-	printf("running gc for %p\n", ut);
+	//printf("running gc for %p\n", ut);
 
 	uint64_t i;
 
@@ -188,6 +205,11 @@ void ulver_gc(ulver_env *env, ulver_thread *ut) {
 			destroy_coro(env, ut, coros);
 		}
 		coros = next_coro;
+	}
+
+	// mark thread return value (if any)
+	if (ut->ret) {
+		object_mark(env, ut->ret);
 	}
 
 	mark_coro(env, ut->main_coro);	
@@ -230,8 +252,4 @@ void ulver_gc(ulver_env *env, ulver_thread *ut) {
 		}
 		uo = next;
 	}
-
-	// if am the main thread, let's destroy the dead threads
-	// TODO
-	printf("done with %p\n", ut);
 }

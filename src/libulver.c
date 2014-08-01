@@ -663,46 +663,6 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	return uo;
 }
 
-void ulver_object_destroy(ulver_env *env, ulver_thread *ut, ulver_object *uo) {
-	ulver_object *prev = uo->gc_prev;
-	ulver_object *next = uo->gc_next;
-
-	if (next) {
-		next->gc_prev = prev;
-	}
-
-	if (prev) {
-		prev->gc_next = next;
-	}
-
-	if (uo == ut->gc_root) {
-		ut->gc_root = next;
-	}
-
-	if (uo->str) {
-		// strings memory area is zero-suffixed
-		env->free(env, uo->str, uo->len + 1);
-	}
-
-	if (uo->map) {
-		ulver_symbolmap_destroy(env, uo->map);
-	}
-
-	if (uo->stream) {
-		env->free(env, uo->stream, sizeof(ulver_uv_stream));
-	}
-
-	// free items
-	ulver_object_item *item = uo->list;
-	while(item) {
-		ulver_object_item *next = item->next;
-		env->free(env, item, sizeof(ulver_object_item));
-		item = next;
-	}
-
-	env->free(env, uo, sizeof(ulver_object));
-}
-
 ulver_object *ulver_object_from_num(ulver_env *env, int64_t n) {
 	ulver_object *uo = ulver_object_new(env, ULVER_NUM);
 	uo->n = n;
@@ -981,7 +941,7 @@ void *run_new_thread(void *arg) {
         // (as the lock is still acquired);
 	ulver_report_error(env);
         ut->dead = 1;
-	printf("THREAD IS DEAD\n");
+	printf("THREAD %p IS DEAD\n", ut);
         return NULL;
 }
 
@@ -1136,39 +1096,42 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
         return ret;
 }
 
+void ulver_thread_destroy(ulver_env *, ulver_thread *);
 uint64_t ulver_destroy(ulver_env *env) {
 	if (!pthread_equal(pthread_self(), env->creator_thread)) {
 		fprintf(env->stderr, "only the creator thread can call ulver_destroy()\n");
 		return env->mem;
 	}
 
-	printf("ready to destroy\n");
-
-	// mark myself as dead
 	ulver_thread *me = ulver_current_thread(env);
-	me->dead = 1;
 
-	printf("marked me as dead\n");
-	// wait for all registered threads...
+	// wait for all registered (and alive) threads...
 	pthread_rwlock_rdlock(&env->threads_lock);
 	ulver_thread *ut = env->threads;
 	while(ut) {
 		printf("waiting for the thread\n");
 		if (!pthread_equal(pthread_self(), ut->t)) {
-			printf("joining %p %p\n", ut, ut->t);
 			pthread_join(ut->t, NULL);
-			printf("ooops\n");
 		} 
 		printf("\nthread joined\n");
 		// mark all the coros as dead
 		ulver_coro *coros = ut->coros;
 		while(coros) {
+			ut->current_coro = coros;
+			// consume the whole stack
+        		while(ut->current_coro->stack) {
+                		ulver_stack_pop(env, ut);
+        		}
 			coros->dead = 1;
 			coros = coros->next;
 		}
-		if (ut->hub) {
-			ulver_hub_destroy(env, ut);
-		}
+		// unprotect all objects
+		ulver_object *uo = ut->gc_root;
+        	while(uo) {
+                	uo->gc_protected = 0;
+                	uo = uo->gc_next;
+        	}
+		ut->dead = 1;
 		ut = ut->next;
 	}
 	pthread_rwlock_unlock(&env->threads_lock);
@@ -1177,16 +1140,8 @@ uint64_t ulver_destroy(ulver_env *env) {
 	printf("clear the errors\n");
 
 	// clear errors (if any)
+	// TODO ERRORS
 	ulver_error(env, NULL);
-	// unprotect objects
-	// TODO
-/*
-	ulver_object *uo = env->gc_root;
-	while(uo) {
-		uo->gc_protected = 0;
-		uo = uo->gc_next;
-	}
-*/
 
 	// destroy globals, functions and packages
 	ulver_symbolmap_destroy(env, env->globals);
@@ -1200,7 +1155,19 @@ uint64_t ulver_destroy(ulver_env *env) {
 	// this will be very fast as symbols maps are already destroyed
 	ut = env->threads;
 	while(ut) {	
-		ulver_gc(env, ut);
+		if (!pthread_equal(pthread_self(), ut->t)) {
+			ulver_gc(env, ut);
+		}
+		ut = ut->next;
+	}
+
+	// call the gc on the main thread (this will cleanup garbage from other threads too)
+	ulver_gc(env, me);
+
+	// finally destroy evry thread stiil alive
+	ut = env->threads;
+        while(ut) {
+		ulver_thread_destroy(env, ut);
 		ut = ut->next;
 	}
 

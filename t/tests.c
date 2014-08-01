@@ -273,4 +273,6 @@ void tests() {
 
 	test_string("(join-thread (make-thread (string-upcase \"hello\")))", "HELLO");
 	test_string("(join-thread (make-thread (join-thread (make-thread (string-upcase \"HellO\")))))", "HELLO");
+
+	test_num("(+ 2 (join-thread (make-thread (+ 5 1))) (join-thread (make-thread (* 4 2))) 1)", 17);
 }
