@@ -272,4 +272,5 @@ void tests() {
 	test_string("(string-downcase \"hEllO\")", "hello");
 
 	test_string("(join-thread (make-thread (string-upcase \"hello\")))", "HELLO");
+	test_string("(join-thread (make-thread (join-thread (make-thread (string-upcase \"HellO\")))))", "HELLO");
 }

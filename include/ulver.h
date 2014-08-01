@@ -80,7 +80,6 @@ struct ulver_scheduled_coro {
 };
 
 struct ulver_coro {
-	ulver_env *env;
 	void *context;
 	ulver_coro *prev;
 	ulver_coro *next;
@@ -94,11 +93,12 @@ struct ulver_coro {
 	ulver_object *ret;
 	uint8_t blocked;
 	ulver_coro *waiting_for;
+	// this is required to avoid cross-thread violation
+	ulver_thread *thread;
 };
 
 struct ulver_thread {
 	pthread_t t;
-	//pthread_mutex_t lock;
 	ulver_thread *prev;
 	ulver_thread *next;
 	// when set, the structure can be destroyed
@@ -113,6 +113,10 @@ struct ulver_thread {
 	ulver_env *env;
 	ulver_coro *hub_creator;
 	ulver_object *ret;
+
+	uint64_t gc_rounds;
+        uint64_t calls;
+	ulver_object *gc_root;
 };
 
 struct ulver_message {
@@ -141,40 +145,32 @@ struct ulver_env {
 	pthread_rwlock_t threads_lock;
 	ulver_thread *threads;
 
-	pthread_rwlock_t unsafe_lock;
-
 	// protect them at every access
 	pthread_mutex_t sources_lock;
 	ulver_source *sources;
-
-	pthread_rwlock_t packages_lock;
-	ulver_symbolmap *packages;
 
 	ulver_object *cl_user;
 
 	pthread_rwlock_t current_package_lock;
 	ulver_object *current_package;
 
-	//  gc always runs in locked context
-	pthread_mutex_t gc_lock;
-	uint64_t gc_rounds;
-
+	// memory counters must be protected
 	pthread_mutex_t mem_lock;
         uint64_t mem;
-        uint64_t calls;
-	uint64_t gc_freq;
 	uint64_t max_memory;
-
-
-	pthread_mutex_t gc_root_lock;
-	ulver_object *gc_root;
+	uint64_t gc_freq;
 
 	pthread_rwlock_t globals_lock;
 	ulver_symbolmap *globals;
 	pthread_rwlock_t funcs_lock;
 	ulver_symbolmap *funcs;
+	pthread_rwlock_t packages_lock;
+	ulver_symbolmap *packages;
 	pthread_rwlock_t channels_lock;
 	ulver_symbolmap *channels;
+
+	uint64_t calls;
+	uint64_t gc_rounds;
 };
 
 struct ulver_object_item {
@@ -224,7 +220,6 @@ struct ulver_object {
 	ulver_message *msg_head;
 	ulver_message *msg_tail;
 	ulver_object *stack_next;
-	uint8_t unsafe;
 	uint8_t _return;
 	void *data;
 	void (*on_destroy)(ulver_object *);
@@ -293,8 +288,8 @@ ulver_symbol *ulver_register_fun(ulver_env *, char *, ulver_object *(*)(ulver_en
 
 void *ulver_alloc(ulver_env *, uint64_t);
 void ulver_free(ulver_env *, void *, uint64_t);
-void ulver_gc(ulver_env *);
-void ulver_object_destroy(ulver_env *, ulver_object *);
+void ulver_gc(ulver_env *, ulver_thread *);
+void ulver_object_destroy(ulver_env *, ulver_thread *ut, ulver_object *);
 
 int ulver_symbolmap_delete(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 int ulver_symbol_delete(ulver_env *, char *, uint64_t);

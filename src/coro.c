@@ -28,7 +28,7 @@ ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
         ulver_coro *coro = env->alloc(env, sizeof(ulver_coro));
 	ulver_coro_context *ucc = ulver_coro_alloc_context(env);
 	coro->context = ucc;
-        coro->env = env;
+	coro->thread = ulver_current_thread(env);
         getcontext(&ucc->context);
         size_t len= 0 ;
         int off = 0;

@@ -47,7 +47,7 @@ static void coro_unschedule(ulver_env *env, ulver_thread *ut, ulver_scheduled_co
 }
 
 void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
-	printf("DESTROY\n");
+	printf("DESTROY HUB\n");
 	if (!ut->hub) return;
 	uv_loop_delete(ut->hub_loop);
         ulver_coro_free_context(env, ut->hub->context);

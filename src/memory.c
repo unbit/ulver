@@ -137,93 +137,101 @@ static void mark_coro(ulver_env *env, ulver_coro *coro) {
                         }
 }
 
-// this function MUST be always called with gc_lock held
-void ulver_gc(ulver_env *env) {
+/*
+	the ulver GC
 
-	printf("entering GC\n");
+Each thread is free to run the gc, but based on the thread running
+it there will be different behaviours
+
+	- the main thread -
+
+	* scan and mark the whole list of coros stacks
+
+	* scan and mark globals
+
+	* scan and mark funcs
+
+	* scan and mark packages
+
+	* sweep thread object
+
+	* destroy all dead threads
+
+	- non-main threads -
+
+	* scan and mark the whole list of coros stacks
+
+	* scan and mark globals
+
+        * scan and mark funcs
+
+        * scan and mark packages
+
+	* sweep thread object
+
+
+*/
+void ulver_gc(ulver_env *env, ulver_thread *ut) {
+
+	printf("running gc for %p\n", ut);
 
 	uint64_t i;
 
+	ut->gc_rounds++;
 	env->gc_rounds++;
 
-	// first search for all dead threads and coros
-	//pthread_rwlock_wrlock(&env->threads_lock);
-	ulver_thread *ut = env->threads;
-        while(ut) {
-		ulver_thread *next = ut->next;
-		ulver_coro *coros = ut->coros;
-		while(coros) {
-			ulver_coro *next_coro = coros->next;
-			if (coros->dead) {
-				destroy_coro(env, ut, coros);
-			}
-			coros = next_coro;
+	// first of all destroy dead coros
+	ulver_coro *coros = ut->coros;
+	while(coros) {
+		ulver_coro *next_coro = coros->next;
+		if (coros->dead) {
+			destroy_coro(env, ut, coros);
 		}
-		if (ut->dead) {
-			ulver_thread_destroy(env, ut);
-		}
-		ut = next;
+		coros = next_coro;
 	}
-	//pthread_rwlock_unlock(&env->threads_lock);
 
-	// when the gc runs, all the threads must be locked
-	// this means that gc is a stop-the-world procedure
-
-	// iterate over threads stack frames
-	//pthread_rwlock_rdlock(&env->threads_lock);
-	printf("scanning threads\n");
-	ut = env->threads;
-	while(ut) {
-		// lock the thread (it could be running)
-		//pthread_mutex_lock(&ut->lock);
-		mark_coro(env, ut->main_coro);	
-		ulver_coro *coros = ut->coros;
-		while(coros) {
-			mark_coro(env, coros);
-			coros = coros->next;
-		}
-		//pthread_mutex_unlock(&ut->lock);
-		ut = ut->next;
+	mark_coro(env, ut->main_coro);	
+	coros = ut->coros;
+	while(coros) {
+		mark_coro(env, coros);
+		coros = coros->next;
 	}
-	//pthread_rwlock_unlock(&env->threads_lock);
-	// the thread list has been unlocked
-	// now new threads can spawn
 
 	// now mark globals, funcs and packages
+	// we acquire a read lock
 	if (env->globals) {
-		//pthread_rwlock_wrlock(&env->globals_lock);
+		pthread_rwlock_rdlock(&env->globals_lock);
 		mark_symbolmap(env, env->globals);
-		//pthread_rwlock_unlock(&env->globals_lock);
+		pthread_rwlock_unlock(&env->globals_lock);
 	}
 
 	if (env->funcs) {
-		//pthread_rwlock_wrlock(&env->funcs_lock);
+		pthread_rwlock_rdlock(&env->funcs_lock);
 		mark_symbolmap(env, env->funcs);
-        	//pthread_rwlock_unlock(&env->funcs_lock);
+        	pthread_rwlock_unlock(&env->funcs_lock);
 	}
 
 	if (env->packages) {
-		//pthread_rwlock_wrlock(&env->packages_lock);
+		pthread_rwlock_rdlock(&env->packages_lock);
 		mark_symbolmap(env, env->packages);
-        	//pthread_rwlock_unlock(&env->packages_lock);
+        	pthread_rwlock_unlock(&env->packages_lock);
 	}
 
-	// and now sweep ... (we need to lock the objects list again)
-	//pthread_mutex_lock(&env->gc_root_lock);
-	ulver_object *uo = env->gc_root;
+	ulver_object *uo = ut->gc_root;
 	while(uo) {
 		// get the next object pointer as the current one
 		// could be destroyed
 		ulver_object *next = uo->gc_next;
 		if (uo->gc_mark == 0 && !uo->gc_protected) {
-			ulver_object_destroy(env, uo);	
+			ulver_object_destroy(env, ut, uo);	
 		}
 		else {
 			uo->gc_mark = 0;
 		}
 		uo = next;
 	}
-	//pthread_mutex_unlock(&env->gc_root_lock);
 
-	// now the gc lock can be released safely...
+	// if am the main thread, let's destroy the dead threads
+	// TODO
+	printf("done with %p\n", ut);
 }
