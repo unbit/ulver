@@ -57,6 +57,26 @@ make test
 
 from the sources directory
 
+Threads and coroutines
+======================
+
+A single ulver interpreter can have multiple threads (mapped to native os threads) to implement parallelism in your app. Each thread can have multiple coroutines (to increase concurrency and implement funny features like generators).
+
+To spawn a thread you use  `make-thread`  passing it a function. This function will be executed (in parallel) in another system thread.
+
+```lisp
+(make-thread (+ 2 2))
+```
+
+The function returns a thread object, on which you can make operations:
+
+```lisp
+(setq megathread (make-thread (+ 2 2)))
+(print (join-thread megathread))
+```
+
+the second line will print '4', as `join-thread` will suspend the current thread untile the specified one returns a value.
+
 Embedding
 =========
 
