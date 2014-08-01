@@ -3,7 +3,8 @@ ulver
 
 Unbit Lisp Version
 
-This is an almost didactical ANSI C implementation of a Common LISP interpreter.
+This is an almost didactical ANSI C implementation of a Common LISP interpreter, with threads (without GIL),
+coroutines, full non-blocking i/o (via libuv) and mark-and-sweep (stop-the-world free) gc
 
 It is built to be easily extended and for being embedded in C/C++ applications
 
