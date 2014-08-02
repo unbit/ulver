@@ -1,15 +1,15 @@
 OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src/funcs_math.o src/funcs_seq.o src/funcs_string.o src/funcs_hashtable.o src/funcs_io.o src/funcs_coro.o src/coro.o src/hub.o src/libulver.o
 ifeq ($(OS), Windows_NT)
-	LDFLAGS=-luv
+	LDFLAGS=libuv/.libs/libuv.a
 	LIBS=
 	CFLAGS=-Ilibuv/include
 	LIBNAME=ulver.dll
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe
 else
-	LDFLAGS=-luv -rdynamic -ldl -lpthread
-	LIBS=-lreadline
-	CFLAGS=-fPIC -fuse-ld=gold -fsplit-stack
+	LDFLAGS=libuv/.libs/libuv.a -rdynamic -ldl
+	LIBS=-lpthread -lreadline
+	CFLAGS=-Ilibuv/include -fPIC -fuse-ld=gold -fsplit-stack
 	LIBNAME=libulver.so
 	BINNAME=ulver
 	TEST=ulver_tests
@@ -28,7 +28,7 @@ $(LIBNAME):
 	$(CC) -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS)
 
 test: libulver.a
-	@$(CC) -Iinclude -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS)
+	@$(CC) -Iinclude -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
 	@./ulver_tests
 	@rm $(TEST)
 

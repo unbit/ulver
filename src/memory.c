@@ -23,17 +23,17 @@ void *ulver_alloc(ulver_env *env, uint64_t len) {
 		perror("calloc()");
 		exit(1);
 	}
-	pthread_mutex_lock(&env->mem_lock);
+	uv_mutex_lock(&env->mem_lock);
 	env->mem += len;
-	pthread_mutex_unlock(&env->mem_lock);
+	uv_mutex_unlock(&env->mem_lock);
 	return ptr;
 }
 
 void ulver_free(ulver_env *env, void *ptr, uint64_t amount) {
 	free(ptr);
-	pthread_mutex_lock(&env->mem_lock);
+	uv_mutex_lock(&env->mem_lock);
 	env->mem -= amount;
-	pthread_mutex_unlock(&env->mem_lock);
+	uv_mutex_unlock(&env->mem_lock);
 }
 
 static void destroy_coro(ulver_env *, ulver_coro *);
@@ -52,7 +52,7 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         // hub ?
         ulver_hub_destroy(env, ut);
 
-	pthread_rwlock_wrlock(&env->threads_lock);
+	uv_rwlock_wrlock(&env->threads_lock);
 
         ulver_thread *next = ut->next;
         ulver_thread *prev = ut->prev;
@@ -67,7 +67,7 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
                 env->threads = next;
         }
 
-        pthread_rwlock_unlock(&env->threads_lock);
+        uv_rwlock_wrunlock(&env->threads_lock);
 
         // and free its memory
         env->free(env, ut, sizeof(ulver_thread));
@@ -203,10 +203,8 @@ static void mark_coro(ulver_env *env, ulver_coro *coro) {
         }
 }
 
+// REMEMBER: get the write GC lock
 void ulver_gc(ulver_env *env) {
-
-	// get the write GC lock
-	pthread_rwlock_wrlock(&env->gc_lock);
 
 	env->gc_rounds++;
 
@@ -216,7 +214,7 @@ void ulver_gc(ulver_env *env) {
                 ulver_thread *next = threads->next;
                 if (threads->dead) {
                         // TODO what happens if it fails ?
-                        pthread_join(threads->t, NULL);
+                        uv_thread_join(&threads->t);
                         ulver_thread_destroy(env, threads);
                 }
                 threads = next;
@@ -264,8 +262,5 @@ void ulver_gc(ulver_env *env) {
 		}
 		uo = next;
 	}
-
-	// restart the world
-	pthread_rwlock_unlock(&env->gc_lock);
 
 }

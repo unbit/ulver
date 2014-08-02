@@ -37,22 +37,20 @@ ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
 }
 
 
-static uv_buf_t ulver_reader_alloc(uv_handle_t *handle, size_t suggested_size) {
+static void ulver_reader_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf) {
 	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
         ulver_env *env = uvs->env;
-	uv_buf_t buf;
-	buf.base = env->alloc(env, uvs->len);
-	buf.len = uvs->len;
-	return buf;
+	buf->base = env->alloc(env, uvs->len);
+	buf->len = uvs->len;
 }
 
-static void ulver_reader_switch_cb(uv_stream_t* handle, ssize_t nread, uv_buf_t buf) {
+static void ulver_reader_switch_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf) {
 	ulver_uv_stream *uvs = (ulver_uv_stream *) handle->data;
         ulver_env *env = uvs->env;
 	uvs->coro->blocked = 0;
         // back to coro
-	uvs->buf = buf.base;
-	uvs->len = buf.len;
+	uvs->buf = buf->base;
+	uvs->len = buf->len;
         ulver_coro_switch(env, uvs->coro);
 }
 
@@ -134,17 +132,14 @@ static void free_uv_timer(uv_handle_t* handle) {
 	env->free(env, uvt, sizeof(ulver_uv_timer));
 } 
 
-static void ulver_timer_switch_cb(uv_timer_t* handle, int status) {
-	printf("TIMER ELAPSED\n");
+static void ulver_timer_switch_cb(uv_timer_t* handle) {
         ulver_uv_timer *uvt = (ulver_uv_timer *) handle->data;
 	ulver_env *env = uvt->env;
         ulver_hub_schedule_waiters(env, uvt->ut, uvt->coro);
         uvt->coro->blocked = 0;
         // back to coro
-	printf("BACK TO CORO %p\n", uvt->coro);
         ulver_coro_switch(env, uvt->coro);
         uv_timer_stop(&uvt->t);
-	printf("TIMER STOPPED\n");
 	// schedule memory free
 	uv_close((uv_handle_t *) &uvt->t, free_uv_timer);
 }
@@ -278,8 +273,9 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
 
         uvs->handle.tcp.data = uvs;
 
-        struct sockaddr_in address = uv_ip4_addr(addr->str, port->n);
-        uv_tcp_bind(&uvs->handle.tcp, address);
+	struct sockaddr_in address;
+        uv_ip4_addr(addr->str, port->n, &address);
+        uv_tcp_bind(&uvs->handle.tcp, (struct sockaddr *)&address, 0);
 
 	// generate the new coro
         ulver_coro *coro = ulver_coro_new(env, tcp_server, uvs);

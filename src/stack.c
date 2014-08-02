@@ -70,9 +70,9 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
 	char *colon = NULL;
         if (*len > 2 && name[0] != ':' && (colon = memchr(name, ':', *len)) ) {
                 // now check if the package exists
-		pthread_rwlock_rdlock(&env->packages_lock);
+		uv_rwlock_rdlock(&env->packages_lock);
                 ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, colon-name, 1);
-		pthread_rwlock_unlock(&env->packages_lock);
+		uv_rwlock_rdunlock(&env->packages_lock);
                 if (!package) {
                         ulver_error(env, "unable to find package %.*s", colon-name, name);
 			*len = 0;
@@ -99,9 +99,9 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
 
         // the symbol has no package prefix, use the current one (if not cl-user)
 	// lock
-	pthread_rwlock_rdlock(&env->packages_lock);
+	uv_rwlock_rdlock(&env->packages_lock);
 	ulver_object *current_package = env->current_package;
-	pthread_rwlock_unlock(&env->packages_lock);
+	uv_rwlock_rdunlock(&env->packages_lock);
 
         if (current_package == env->cl_user) return NULL;
 	// unlock

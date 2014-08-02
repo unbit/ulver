@@ -1,19 +1,9 @@
-#include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
-#include <sys/stat.h>
-#include <ctype.h>
-#include <errno.h>
-#ifdef __WIN32__
-#else
-#include <dlfcn.h>
-#endif
 #include <uv.h>
+#include <dlfcn.h>
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1

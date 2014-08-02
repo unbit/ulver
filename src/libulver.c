@@ -39,7 +39,7 @@ ulver_object *ulver_fun_values(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
-	ulver_object *stream = env->stdin;
+	ulver_object *stream = env->_stdin;
         if (argv) {
                 stream = ulver_eval(env, argv);
                 if (!stream) return NULL;
@@ -174,15 +174,15 @@ ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
                 name++; len--;
         }
 
-	pthread_rwlock_rdlock(&env->packages_lock);
+	uv_rwlock_rdlock(&env->packages_lock);
 	ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, len, 1);
-	pthread_rwlock_unlock(&env->packages_lock);
+	uv_rwlock_rdunlock(&env->packages_lock);
 	if (!package) {
 		return ulver_error(env, "unable to find package %.*s", len, name);
 	}
-	pthread_rwlock_wrlock(&env->packages_lock);
+	uv_rwlock_wrlock(&env->packages_lock);
 	env->current_package = package->value;
-	pthread_rwlock_unlock(&env->packages_lock);
+	uv_rwlock_wrunlock(&env->packages_lock);
 	ulver_symbol_set(env, "*package*", 9, env->current_package);
 	return package->value;
 }
@@ -270,9 +270,9 @@ ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "function requires an argument");
         if (argv->type != ULVER_SYMBOL) return ulver_error(env, "function requires a symbol as argument");
 
-	pthread_rwlock_rdlock(&env->funcs_lock);
+	uv_rwlock_rdlock(&env->funcs_lock);
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, argv->value, argv->len, 0);
-	pthread_rwlock_unlock(&env->funcs_lock);
+	uv_rwlock_rdunlock(&env->funcs_lock);
 
         if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
 	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
@@ -452,9 +452,9 @@ ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 		}
                 stack = stack->prev;
         }
-	pthread_rwlock_wrlock(&env->globals_lock);
+	uv_rwlock_wrlock(&env->globals_lock);
 	ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 0);
-	pthread_rwlock_unlock(&env->globals_lock);
+	uv_rwlock_wrunlock(&env->globals_lock);
 	if (!us) return NULL;
 	return uo;
 }
@@ -484,7 +484,7 @@ ulver_object *ulver_fun_close(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
-	ulver_object *stream = env->stdin;
+	ulver_object *stream = env->_stdin;
 	if (argv) {
 		stream = ulver_eval(env, argv);
 		if (!stream) return NULL;
@@ -610,11 +610,11 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	ut->current_coro->stack->objects = uo;
 	ut->current_coro->stack->objects->stack_next = latest_stack_object;
 
-	pthread_mutex_lock(&env->gc_root_lock);
+	uv_mutex_lock(&env->gc_root_lock);
 	// put in the gc list
 	if (!env->gc_root) {
 		env->gc_root = uo;
-		pthread_mutex_unlock(&env->gc_root_lock);
+		uv_mutex_unlock(&env->gc_root_lock);
 		return uo;
 	}
 
@@ -623,7 +623,7 @@ ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	uo->gc_next = current_root;
 	current_root->gc_prev = uo;
 
-	pthread_mutex_unlock(&env->gc_root_lock);
+	uv_mutex_unlock(&env->gc_root_lock);
 
 	return uo;
 }
@@ -666,9 +666,9 @@ ulver_object *ulver_package(ulver_env *env, char *value, uint64_t len) {
 	uo->map = ulver_symbolmap_new(env);
 	// package names do not take the current namespace into account
 
-	pthread_rwlock_wrlock(&env->packages_lock);
+	uv_rwlock_wrlock(&env->packages_lock);
 	ulver_symbolmap_set(env, env->packages, uo->str, uo->len, uo, 1);
-	pthread_rwlock_unlock(&env->packages_lock);
+	uv_rwlock_wrunlock(&env->packages_lock);
         return uo;
 }
 
@@ -677,9 +677,9 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 	ulver_thread *ut = ulver_current_thread(env);
         // is it a global var ?
         if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		pthread_rwlock_wrlock(&env->globals_lock);
+		uv_rwlock_wrlock(&env->globals_lock);
                 int ret = ulver_symbolmap_delete(env, env->globals, name, len, 0);
-		pthread_rwlock_unlock(&env->globals_lock);
+		uv_rwlock_wrunlock(&env->globals_lock);
 		return ret;
         }
         ulver_stackframe *stack = ut->current_coro->stack;
@@ -689,9 +689,9 @@ int ulver_symbol_delete(ulver_env *env, char *name, uint64_t len) {
 		}
                 stack = stack->prev;
         }
-	pthread_rwlock_wrlock(&env->globals_lock);
+	uv_rwlock_wrlock(&env->globals_lock);
         int ret = ulver_symbolmap_delete(env, env->globals, name, len, 0);
-	pthread_rwlock_unlock(&env->globals_lock);
+	uv_rwlock_wrunlock(&env->globals_lock);
 	return ret;
 }
 
@@ -699,10 +699,10 @@ ulver_object *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 	ulver_object *ret = NULL; 
 	// is it a global var ?
 	if (len > 2 && name[0] == '*' && name[len-1] == '*') {
-		pthread_rwlock_rdlock(&env->globals_lock);
+		uv_rwlock_rdlock(&env->globals_lock);
 		ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
 		if (us) ret = us->value;
-		pthread_rwlock_unlock(&env->globals_lock);
+		uv_rwlock_rdunlock(&env->globals_lock);
 		return ret;
 	}	
 	ulver_thread *ut = ulver_current_thread(env);
@@ -712,10 +712,10 @@ ulver_object *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 		if (us) return us->value;
 		stack = stack->prev;
 	}
-	pthread_rwlock_rdlock(&env->globals_lock);
+	uv_rwlock_rdlock(&env->globals_lock);
 	ulver_symbol *us = ulver_symbolmap_get(env, env->globals, name, len, 0);
 	if (us) ret = us->value;
-	pthread_rwlock_unlock(&env->globals_lock);
+	uv_rwlock_rdunlock(&env->globals_lock);
 	return ret;
 }
 
@@ -863,7 +863,7 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 	}
 
 	// allow the GC to run
-	pthread_rwlock_unlock(&env->gc_lock);
+	uv_rwlock_rdunlock(&env->gc_lock);
 
 	if (ut->current_coro->error) {
 		ret = NULL;
@@ -871,7 +871,6 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 
 	env->calls++;
 
-	if (!pthread_equal(ut->t, env->creator_thread)) goto end;
         uint8_t run_gc = 0;
 
         if (ut->current_coro->trigger_gc) {
@@ -879,23 +878,27 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
                 ut->current_coro->trigger_gc = 0;
         }
         else {
-                pthread_mutex_lock(&env->mem_lock);
+                uv_mutex_lock(&env->mem_lock);
                 // gc must be called only if the maximum amount of memory is reached
                 if (env->gc_freq > 0 && env->mem > env->max_memory) {
                         if ((env->calls % env->gc_freq) == 0) {
                                 run_gc = 1;
                         }
                 }
-                pthread_mutex_unlock(&env->mem_lock);
+                uv_mutex_unlock(&env->mem_lock);
         }
 
         if (run_gc) {
+		// stop the world
+		uv_rwlock_wrlock(&env->gc_lock);
 		ulver_gc(env);
+		// restart the world
+		uv_rwlock_wrunlock(&env->gc_lock);
                 ut->current_coro->trigger_gc = 0;
         }
 
 end:
-	pthread_rwlock_rdlock(&env->gc_lock);
+	uv_rwlock_rdlock(&env->gc_lock);
 	return ret;
 }
 
@@ -917,9 +920,9 @@ ulver_symbol *ulver_register_fun2(ulver_env *env, char *name, uint64_t len, ulve
         uo->len = len;
 	uo->gc_protected = 1;
         ulver_utils_toupper(uo->str, uo->len);
-	pthread_rwlock_wrlock(&env->funcs_lock);
+	uv_rwlock_wrlock(&env->funcs_lock);
         ulver_symbol *us = ulver_symbolmap_set(env, env->funcs, name, len, uo, 0);
-	pthread_rwlock_unlock(&env->funcs_lock);
+	uv_rwlock_wrunlock(&env->funcs_lock);
 	return us;
 }
 
@@ -940,9 +943,9 @@ ulver_symbol *ulver_symbol_set(ulver_env *env, char *name, uint64_t len, ulver_o
 	ulver_thread *ut = ulver_current_thread(env);
 	// is it a global var ?
 	if ((len > 2 && name[0] == '*' && name[len-1] == '*') || ut->current_coro->stack->prev == NULL) {
-		pthread_rwlock_wrlock(&env->globals_lock);
+		uv_rwlock_wrlock(&env->globals_lock);
 		ulver_symbol *us = ulver_symbolmap_set(env, env->globals, name, len, uo, 0);
-		pthread_rwlock_wrlock(&env->globals_lock);
+		uv_rwlock_wrunlock(&env->globals_lock);
 		return us;
 	}	
 	return ulver_symbolmap_set(env, ut->current_coro->stack->locals, name, len, uo, 0);
@@ -1024,14 +1027,14 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
 void ulver_thread_destroy(ulver_env *, ulver_thread *, uint8_t);
 uint64_t ulver_destroy(ulver_env *env) {
 
-	if (!pthread_equal(pthread_self(), env->creator_thread)) {
+	if (uv_thread_self() != env->creator_thread) {
 		printf("[WARNING] only the creator thread can destroy a ulver environment\n");
 		return env->mem;
 	}
 
 	// acquire the gc lock (destroy is a stop-the-world operation)
-	pthread_rwlock_unlock(&env->gc_lock);
-	pthread_rwlock_wrlock(&env->gc_lock);
+	uv_rwlock_rdunlock(&env->gc_lock);
+	uv_rwlock_wrlock(&env->gc_lock);
 
 	// destroy globals, functions and packages
 	ulver_symbolmap_destroy(env, env->globals);
@@ -1077,7 +1080,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 
 	uint64_t mem = env->mem;
 
-	pthread_rwlock_unlock(&env->gc_lock);
+	uv_rwlock_wrunlock(&env->gc_lock);
 
 	free(env);
 
@@ -1088,20 +1091,20 @@ uint64_t ulver_destroy(ulver_env *env) {
 void ulver_report_error(ulver_env *env) {
 	ulver_thread *ut = ulver_current_thread(env);
 	if (ut->current_coro->error) {
-		fprintf(env->stderr, "\n*** ERROR: %.*s ***\n", (int) ut->current_coro->error_len, ut->current_coro->error);
+		fprintf(env->_stderr, "\n*** ERROR: %.*s ***\n", (int) ut->current_coro->error_len, ut->current_coro->error);
                 // clear error
                 ulver_error(env, NULL);
 	}
 }
 
 ulver_thread *ulver_current_thread(ulver_env *env) {
-	ulver_thread *ut = (ulver_thread *) pthread_getspecific(env->thread);
+	ulver_thread *ut = (ulver_thread *) uv_key_get(&env->thread);
 	if (ut) return ut;
 	ut = env->alloc(env, sizeof(ulver_thread));
-        pthread_setspecific(env->thread, (void *) ut);
+        uv_key_set(&env->thread, (void *) ut);
 
 	ut->env = env;
-	ut->t = pthread_self();
+	ut->t = uv_thread_self();
 
 	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
 	ut->main_coro->thread = ut;
@@ -1110,14 +1113,14 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 
         ulver_stack_push(env, ut, ut->current_coro);
 
-	pthread_rwlock_wrlock(&env->threads_lock);
+	uv_rwlock_wrlock(&env->threads_lock);
         ulver_thread *head = env->threads;
         if (head) head->prev = ut;
         env->threads = ut;
         ut->next = head;
-        pthread_rwlock_unlock(&env->threads_lock);
+        uv_rwlock_wrunlock(&env->threads_lock);
 
-	pthread_rwlock_rdlock(&env->gc_lock);
+	uv_rwlock_rdlock(&env->gc_lock);
 
         return ut;
 }
@@ -1126,8 +1129,8 @@ ulver_env *ulver_init() {
 
         ulver_env *env = calloc(1, sizeof(ulver_env));
 
-	env->creator_thread = pthread_self();
-	if (pthread_key_create(&env->thread, NULL)) {
+	env->creator_thread = uv_thread_self();
+	if (uv_key_create(&env->thread)) {
 		ulver_destroy(env);
 		return NULL;
 	}
@@ -1135,23 +1138,23 @@ ulver_env *ulver_init() {
         env->alloc = ulver_alloc;
         env->free = ulver_free;
 
-	env->stdout = stdout;
-	env->stderr = stderr;
+	env->_stdout = stdout;
+	env->_stderr = stderr;
 
-	pthread_mutex_init(&env->mem_lock, NULL);
+	uv_mutex_init(&env->mem_lock);
 
-	pthread_rwlock_init(&env->threads_lock, NULL);
-	pthread_rwlock_init(&env->gc_lock, NULL);
-	pthread_mutex_init(&env->gc_root_lock, NULL);
+	uv_rwlock_init(&env->threads_lock);
+	uv_rwlock_init(&env->gc_lock);
+	uv_mutex_init(&env->gc_root_lock);
 
 	env->globals = ulver_symbolmap_new(env); 
-	pthread_rwlock_init(&env->globals_lock, NULL);
+	uv_rwlock_init(&env->globals_lock);
 	env->funcs = ulver_symbolmap_new(env); 
-	pthread_rwlock_init(&env->funcs_lock, NULL);
+	uv_rwlock_init(&env->funcs_lock);
 
         // create the packages map
         env->packages = ulver_symbolmap_new(env);
-	pthread_rwlock_init(&env->packages_lock, NULL);
+	uv_rwlock_init(&env->packages_lock);
         // create the CL-USER package (will be set as current)
         env->cl_user = ulver_package(env, "CL-USER", 7);
         env->current_package = env->cl_user;
