@@ -3,32 +3,17 @@
 /*
         the ulver GC
 
-Each thread is free to run the gc, there is no stop-the-world phase
+Each thread is free to run the gc
 
-The first step of the GC is marking
+The first step of the gc is joining dead threads
 
-Eeach coro stack is inspected for objects
+For each alive thread, the list of coros is checked for 
+objects to mark.
 
-Each global var is inspected and every object mapped
-to the current thread is marked.
-
-Each fun is inspected and every object mapped
-to the current thread is marked.
-
-Each package is inspected and every object mapped
-to the current thread is marked.
+Objects mapped to global symbols, funcs sumbols or packages are
+marked too.
 
 Finally each non-marked object (and non-protected) is destroyed.
-
-* Special cases with coro and threads *
-
-when a thread is spawned, its related object is reparented to the new thread (this avoid
-the gc to suddenly destroy the object)
-
-when the thread ends, its coros are consumed, the thread object and its return value (if any) is
-reparented to the main thread and the gc is called (this will free all of the other unmarked/unprotected thread-related object).
-Survived objects are all reparented to the main_thread.
-
 
 */
 
