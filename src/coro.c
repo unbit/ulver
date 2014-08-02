@@ -1,5 +1,7 @@
 #include <ulver.h>
 
+#ifndef __WIN32__
+
 #include <ucontext.h>
 
 typedef struct ulver_coro_context ulver_coro_context;
@@ -70,6 +72,20 @@ void ulver_coro_fast_switch(ulver_env *env, ulver_coro *coro) {
 	}
 	setcontext(&ucc->context);
 }
+#else
+void *ulver_coro_alloc_context(ulver_env *env) {
+	return NULL;
+}
+void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
+}
+ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
+	return NULL;
+}
+void ulver_coro_switch(ulver_env *env, ulver_coro *coro) {
+}
+void ulver_coro_fast_switch(ulver_env *env, ulver_coro *coro) {
+}
+#endif
 
 
 

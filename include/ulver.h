@@ -1,9 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <string.h>
 #include <stdarg.h>
 #include <uv.h>
+#ifndef __WIN32__
 #include <dlfcn.h>
+#endif
 
 #define ULVER_LIST 0
 #define ULVER_SYMBOL 1
