@@ -2,7 +2,7 @@ OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src
 ifeq ($(OS), Windows_NT)
 	LDFLAGS=-luv
 	LIBS=
-	CFLAGS=
+	CFLAGS=-Ilibuv/include
 	LIBNAME=ulver.dll
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe

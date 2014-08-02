@@ -28,7 +28,7 @@ void *run_new_thread(void *arg) {
         // this will create the memory structures
         // for the new thread
         ulver_thread *ut = ulver_current_thread(env);
-        ut->t = pthread_self();
+        ut->t = uv_thread_self();
 
         // wake up the spinning creator thread
         to->thread = ut;
@@ -50,12 +50,13 @@ void *run_new_thread(void *arg) {
 ulver_object *ulver_fun_make_thread(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, "make-thread requires an argument");
         ulver_object *thread = ulver_object_new(env, ULVER_THREAD);
-        pthread_t t;
+        uv_thread_t t;
         struct ulver_thread_args *uta = env->alloc(env, sizeof(struct ulver_thread_args));
         uta->to = thread;
         uta->env = env;
         uta->argv = argv;
-        if (pthread_create(&t, NULL, run_new_thread, uta)) {
+        //if (pthread_create(&t, NULL, run_new_thread, uta)) {
+        if (uv_thread_create(&t, run_new_thread, uta)) {
                 env->free(env, uta, sizeof(struct ulver_thread_args));
                 return ulver_error(env, "unable to spawn thread");
         }

@@ -197,10 +197,10 @@ void ulver_utils_print_form(ulver_env *env, ulver_form *form) {
 	}
 
         if (form->type == ULVER_STRING) {
-        	fprintf(env->stdout, "\"%.*s\"", (int)form->len, form->value);
+        	fprintf(env->_stdout, "\"%.*s\"", (int)form->len, form->value);
 		return;
         }
-        fprintf(env->stdout, "%.*s", (int)form->len, form->value);
+        fprintf(env->_stdout, "%.*s", (int)form->len, form->value);
 }
 
 uint64_t ulver_utils_length(ulver_object *uo) {

@@ -10,7 +10,6 @@
 #include <ctype.h>
 #include <errno.h>
 #ifdef __WIN32__
-#include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
@@ -97,7 +96,7 @@ struct ulver_coro {
 };
 
 struct ulver_thread {
-	pthread_t t;
+	unsigned long t;
 	ulver_thread *prev;
 	ulver_thread *next;
 	// when set, the structure can be destroyed
@@ -115,52 +114,52 @@ struct ulver_thread {
 
 struct ulver_env {
 
-	pthread_t creator_thread;
+	uv_thread_t creator_thread;
 
 	void *(*alloc)(ulver_env *, uint64_t);
 	void (*free)(ulver_env *, void *, uint64_t);
 
-	FILE *stdout;
-	FILE *stderr;
+	FILE *_stdout;
+	FILE *_stderr;
 
 	ulver_object *t;
 	ulver_object *nil;
-	ulver_object *stdin;
+	ulver_object *_stdin;
 
 	// a key mapping to the currently running thread
-	pthread_key_t thread;
+	uv_key_t thread;
 
-	pthread_rwlock_t threads_lock;
+	uv_rwlock_t threads_lock;
 	ulver_thread *threads;
 
-	pthread_rwlock_t gc_lock;
+	uv_rwlock_t gc_lock;
 
 	// protect them at every access
-	pthread_mutex_t sources_lock;
+	uv_mutex_t sources_lock;
 	ulver_source *sources;
 
 	ulver_object *cl_user;
 
-	pthread_rwlock_t current_package_lock;
+	uv_rwlock_t current_package_lock;
 	ulver_object *current_package;
 
 	// memory counters must be protected
-	pthread_mutex_t mem_lock;
+	uv_mutex_t mem_lock;
         uint64_t mem;
 	uint64_t max_memory;
 	uint64_t gc_freq;
 
-	pthread_rwlock_t globals_lock;
+	uv_rwlock_t globals_lock;
 	ulver_symbolmap *globals;
-	pthread_rwlock_t funcs_lock;
+	uv_rwlock_t funcs_lock;
 	ulver_symbolmap *funcs;
-	pthread_rwlock_t packages_lock;
+	uv_rwlock_t packages_lock;
 	ulver_symbolmap *packages;
 
 	uint64_t calls;
 	uint64_t gc_rounds;
 	ulver_object *gc_root;
-	pthread_mutex_t gc_root_lock;
+	uv_mutex_t gc_root_lock;
 };
 
 struct ulver_object_item {
