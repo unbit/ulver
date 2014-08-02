@@ -3,8 +3,8 @@ ulver
 
 Unbit Lisp Version
 
-This is an (incomplete) ANSI C implementation of a Common LISP dialect interpreter, with threads (without GIL),
-coroutines, full non-blocking i/o (via libuv) and mark-and-sweep (stop-the-world free) gc
+This is a modern (and incomplete) implementation of a Common LISP dialect interpreter, with threads (without GIL),
+coroutines, full non-blocking i/o (via libuv) and mark-and-sweep gc
 
 It is built to be easily extended and for being embedded in C/C++ applications
 
@@ -75,7 +75,13 @@ The function returns a thread object, on which you can make operations:
 (print (join-thread megathread))
 ```
 
-the second line will print '4', as `join-thread` will suspend the current thread untile the specified one returns a value.
+the second line will print '4', as `join-thread` will suspend the current thread until the specified one returns a value.
+
+The GC
+======
+
+Currently simplicity has been choosen over performance. The GC is a stop-the-world mark and sweep. Every thread acquire
+a pthread rwlock (in read mode) before entering the ulver engine. When the gc runs (you have full control over it) it get a write lock and start marking and sweeping objects.
 
 Embedding
 =========
