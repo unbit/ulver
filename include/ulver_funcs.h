@@ -49,3 +49,7 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_coro_switch(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_coro_yield(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_coro_next(ulver_env *, ulver_form *);
+
+ulver_object *ulver_fun_make_thread(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_join_thread(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_all_threads(ulver_env *, ulver_form *);

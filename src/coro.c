@@ -18,10 +18,12 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 	return env->alloc(env, sizeof(ulver_coro_context));
 }
 
-void ulver_coro_free_context(ulver_env *env, void *ptr) {
-	ulver_coro_context *ucc = (ulver_coro_context *) ptr;
-	__splitstack_releasecontext(ucc->ss_contexts);
-	return env->free(env, ptr, sizeof(ulver_coro_context));
+void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
+	if (coro != coro->thread->main_coro) {
+		ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
+		__splitstack_releasecontext(ucc->ss_contexts);
+	}
+	return env->free(env, coro->context, sizeof(ulver_coro_context));
 }
 
 ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {

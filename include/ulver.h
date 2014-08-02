@@ -43,7 +43,6 @@ typedef struct ulver_stackframe ulver_stackframe;
 typedef struct ulver_symbolmap ulver_symbolmap;
 typedef struct ulver_source ulver_source;
 typedef struct ulver_thread ulver_thread;
-typedef struct ulver_message ulver_message;
 typedef struct ulver_coro ulver_coro;
 typedef struct ulver_scheduled_coro ulver_scheduled_coro;
 typedef struct ulver_uv_stream ulver_uv_stream;
@@ -112,17 +111,6 @@ struct ulver_thread {
 	ulver_scheduled_coro *scheduled_coros_tail;
 	ulver_env *env;
 	ulver_coro *hub_creator;
-	ulver_object *ret;
-
-	uint64_t gc_rounds;
-        uint64_t calls;
-	ulver_object *gc_root;
-};
-
-struct ulver_message {
-	ulver_object *value;
-	ulver_message *prev;
-	ulver_message *next;
 };
 
 struct ulver_env {
@@ -145,6 +133,8 @@ struct ulver_env {
 	pthread_rwlock_t threads_lock;
 	ulver_thread *threads;
 
+	pthread_rwlock_t gc_lock;
+
 	// protect them at every access
 	pthread_mutex_t sources_lock;
 	ulver_source *sources;
@@ -166,11 +156,11 @@ struct ulver_env {
 	ulver_symbolmap *funcs;
 	pthread_rwlock_t packages_lock;
 	ulver_symbolmap *packages;
-	pthread_rwlock_t channels_lock;
-	ulver_symbolmap *channels;
 
 	uint64_t calls;
 	uint64_t gc_rounds;
+	ulver_object *gc_root;
+	pthread_mutex_t gc_root_lock;
 };
 
 struct ulver_object_item {
@@ -201,7 +191,7 @@ struct ulver_uv_stream {
 };
 
 struct ulver_object {
-        uint8_t type; // list, func, num, string
+        uint8_t type;
         uint64_t len;
         char *str;
         int64_t n;
@@ -214,18 +204,30 @@ struct ulver_object {
 	uint8_t gc_mark;
 	uint8_t gc_protected;
 	ulver_symbolmap *map;
+	// is it mapped to a form ?
 	ulver_form *form;
+	// is it mapped to a thread ?
 	ulver_thread *thread;
+	// is it mapped to a coro ?
 	ulver_coro *coro;
-	ulver_message *msg_head;
-	ulver_message *msg_tail;
+	// next object in the stack
 	ulver_object *stack_next;
+	// is it a return value ?
 	uint8_t _return;
+	// custom data
 	void *data;
+	// custom hook to call on destroy
 	void (*on_destroy)(ulver_object *);
+	// lambda is manually managed
 	uint8_t no_lambda;
+
 	uv_fs_t file;
 	ulver_uv_stream *stream;
+
+	// some object holds a return value 	
+	ulver_object *ret;
+
+	uint8_t ready;
 };
 
 struct ulver_form {
@@ -264,8 +266,8 @@ uint64_t ulver_utils_length(ulver_object *);
 ulver_symbol *ulver_symbolmap_get(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 ulver_symbol *ulver_symbolmap_set(ulver_env *, ulver_symbolmap *, char *, uint64_t, ulver_object *, uint8_t);
 
-ulver_stackframe *ulver_stack_push(ulver_env *, ulver_thread *);
-void ulver_stack_pop(ulver_env *, ulver_thread *);
+ulver_stackframe *ulver_stack_push(ulver_env *, ulver_thread *, ulver_coro *);
+void ulver_stack_pop(ulver_env *, ulver_thread *, ulver_coro *);
 
 ulver_object *ulver_object_new(ulver_env *, uint8_t);
 ulver_object *ulver_object_push(ulver_env *, ulver_object *, ulver_object *);
@@ -288,8 +290,8 @@ ulver_symbol *ulver_register_fun(ulver_env *, char *, ulver_object *(*)(ulver_en
 
 void *ulver_alloc(ulver_env *, uint64_t);
 void ulver_free(ulver_env *, void *, uint64_t);
-void ulver_gc(ulver_env *, ulver_thread *);
-void ulver_object_destroy(ulver_env *, ulver_thread *ut, ulver_object *);
+void ulver_gc(ulver_env *);
+void ulver_object_destroy(ulver_env *, ulver_object *);
 
 int ulver_symbolmap_delete(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 int ulver_symbol_delete(ulver_env *, char *, uint64_t);
@@ -338,7 +340,7 @@ ulver_coro *ulver_coro_new(ulver_env *, void *, void *);
 void ulver_coro_switch(ulver_env *, ulver_coro *);
 void ulver_coro_fast_switch(ulver_env *, ulver_coro *);
 void *ulver_coro_alloc_context(ulver_env *);
-void ulver_coro_free_context(ulver_env *, void *);
+void ulver_coro_free_context(ulver_env *, ulver_coro *);
 void ulver_hub_schedule_waiters(ulver_env *, ulver_thread *ut, ulver_coro *);
 
 void ulver_hub_destroy(ulver_env *, ulver_thread *);

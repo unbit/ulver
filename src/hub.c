@@ -47,14 +47,20 @@ static void coro_unschedule(ulver_env *env, ulver_thread *ut, ulver_scheduled_co
 }
 
 void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
-	printf("DESTROY HUB\n");
 	if (!ut->hub) return;
+	// some scheduled coro could be alive if the coro has not been
+	// completely consumed
+	ulver_scheduled_coro *usc = ut->scheduled_coros_head;
+	while(usc) {
+		ulver_scheduled_coro *next = usc->next;
+		env->free(env, usc, sizeof(ulver_scheduled_coro));
+		usc = next;
+	}
 	uv_loop_delete(ut->hub_loop);
-        ulver_coro_free_context(env, ut->hub->context);
+        ulver_coro_free_context(env, ut->hub);
         env->free(env, ut->hub, sizeof(ulver_coro));
         ut->hub = NULL;
         ut->hub_loop = NULL;
-        printf("THE HUB IS NO MORE\n");
 }
 
 static void hub_loop(ulver_env *env, ulver_thread *ut) {

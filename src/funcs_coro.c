@@ -33,10 +33,7 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
         }
 
         // create the new stack
-        ulver_coro *current_coro = ut->current_coro;
-        ut->current_coro = coro;
-        ulver_stack_push(env, ut);
-        ut->current_coro = current_coro;
+        ulver_stack_push(env, ut, coro);
 
 	// start pushing lambda_list
 	ulver_form *lambda_list = argv->list;
