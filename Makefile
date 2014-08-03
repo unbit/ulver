@@ -1,8 +1,16 @@
 OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src/funcs_math.o src/funcs_seq.o src/funcs_string.o src/funcs_hashtable.o src/funcs_io.o src/funcs_coro.o src/coro.o src/hub.o src/libulver.o
 ifeq ($(OS), Windows_NT)
-	LDFLAGS=libuv/libuv.a
-	LIBS=-lmsvcpp -ladvapi32 -liphlpapi -lpsapi -lshell32 -lws2_32
-	CFLAGS=-D_WIN32_WINNT=0x0600 -Ilibuv/include
+	LDFLAGS=
+	LIBS=-luv -ladvapi32 -liphlpapi -lpsapi -lshell32 -lws2_32
+	CFLAGS=-D_WIN32_WINNT=0x0600
+	ifneq ($(UV), "")
+		CFLAGS+=-I$(UV)/include
+		LDFLAGS+=-L$(UV)/
+	endif
+	ifneq ("$(wildcard libuv/include/uv.h)","")
+		CFLAGS+=-Ilibuv/include
+		LDFLAGS+=-Llibuv/
+	endif
 	LIBNAME=ulver.dll
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe

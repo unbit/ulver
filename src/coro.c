@@ -96,17 +96,40 @@ void ulver_coro_fast_switch(ulver_env *env, ulver_coro *coro) {
 	setcontext(&ucc->context);
 }
 #else
+typedef struct ulver_coro_context ulver_coro_context;
+struct ulver_coro_context {
+	LPVOID fiber;
+};
 void *ulver_coro_alloc_context(ulver_env *env) {
-	return NULL;
+	ulver_thread *ut = ulver_current_thread(env);
+	ulver_coro_context *ucc = env->alloc(env, sizeof(ulver_coro_context));
+	if (!ut->current_coro) {
+		printf("converting a thread to a fiber\n");
+		ucc->fiber = ConvertThreadToFiber(NULL);
+	}
+	return ucc;
+	
 }
 void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
+	ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
+	DeleteFiber(ucc->fiber);
+	return env->free(env, coro->context, sizeof(ulver_coro_context));
 }
 ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
-	return NULL;
+        ulver_coro *coro = env->alloc(env, sizeof(ulver_coro));
+	ulver_coro_context *ucc = ulver_coro_alloc_context(env);
+	coro->context = ucc;
+	ucc->fiber = CreateFiber(32768, func, env);
+        return coro;
 }
 void ulver_coro_switch(ulver_env *env, ulver_coro *coro) {
+	ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
+	SwitchToFiber(ucc->fiber);
+	
 }
 void ulver_coro_fast_switch(ulver_env *env, ulver_coro *coro) {
+	ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
+	SwitchToFiber(ucc->fiber);
 }
 #endif
 

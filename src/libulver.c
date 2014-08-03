@@ -1109,6 +1109,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
 	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
 	ut->main_coro->thread = ut;
 	ut->main_coro->context = ulver_coro_alloc_context(env);
+
 	ut->current_coro = ut->main_coro;
 
         ulver_stack_push(env, ut, ut->current_coro);
