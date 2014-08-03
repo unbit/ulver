@@ -8,14 +8,18 @@ ifeq ($(OS), Windows_NT)
 	TEST=ulver_tests.exe
 else
 	OS=$(shell uname)
-	LDFLAGS=libuv/.libs/libuv.a -rdynamic -ldl
-	LIBS=-lpthread -lreadline
-	CFLAGS=-Ilibuv/include -fPIC
+	LDFLAGS=-rdynamic
+	LIBS=-luv -ldl -lpthread -lreadline
+	CFLAGS=-fPIC
 	ifeq ($(OS), Darwin)
 		CFLAGS+=-D_XOPEN_SOURCE -Wno-deprecated-declarations
 	endif	
 	ifeq ($(SPLITSTACK), 1)
 		CFLAGS+=-fuse-ld=gold -fsplit-stack -DSPLITSTACK
+	endif
+	ifneq ("$(wildcard libuv/include/uv.h)","")
+		CFLAGS+=-Ilibuv/include
+		LDFLAGS+=-Llibuv/.libs
 	endif
 	LIBNAME=libulver.so
 	BINNAME=ulver
@@ -35,10 +39,9 @@ $(LIBNAME):
 	$(CC) -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS) $(LIBS)
 
 test: libulver.a
-	@$(CC) -Iinclude -g $(CFLAGS) -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
+	@$(CC) $(CFLAGS) -Iinclude -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
 	@./ulver_tests
 	@rm $(TEST)
-
 
 clean:
 	rm -f src/*.o libulver.a $(LIBNAME) $(BINNAME)
