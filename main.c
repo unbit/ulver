@@ -51,12 +51,15 @@ int main(int argc, char **argv) {
 				printf("unable to parse expression\n");
 				continue;
 			}
-			ulver_object *ret = ulver_fun_print(env, uf);
-                	if (ret == NULL) {
-				ulver_report_error(env);
-                	}
-			else {
-				printf("\n");
+			while(uf) {
+				ulver_object *ret = ulver_fun_print(env, uf);
+                		if (ret == NULL) {
+					ulver_report_error(env);
+                		}
+				else {
+					printf("\n");
+				}
+				uf = uf->next;
 			}
         	}
 		ulver_destroy(env);
