@@ -36,6 +36,8 @@ ulver_object *ulver_fun_mul(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_mod(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_higher(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_equal(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_sin(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_cos(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_write_string(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_read_string(ulver_env *, ulver_form *);

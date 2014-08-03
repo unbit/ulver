@@ -2,6 +2,7 @@ OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src
 ifeq ($(OS), Windows_NT)
 	LDFLAGS=
 	LIBS=-luv -ladvapi32 -liphlpapi -lpsapi -lshell32 -lws2_32
+	LIBS2=
 	CFLAGS=-D_WIN32_WINNT=0x0600
 	ifneq ($(UV), "")
 		CFLAGS+=-I$(UV)/include
@@ -17,7 +18,8 @@ ifeq ($(OS), Windows_NT)
 else
 	OS=$(shell uname)
 	LDFLAGS=-rdynamic
-	LIBS=-ldl -lpthread -lreadline
+	LIBS=-ldl -lpthread -lm
+	LIBS2=-lreadline
 	CFLAGS=-fPIC
 	ifeq ($(OS), Darwin)
 		CFLAGS+=-D_XOPEN_SOURCE -Wno-deprecated-declarations
@@ -37,7 +39,7 @@ else
 endif
 
 all: libulver.a $(LIBNAME)
-	$(CC) $(CFLAGS) -Iinclude -g -o $(BINNAME) main.c libulver.a $(LDFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) -Iinclude -g -o $(BINNAME) main.c libulver.a $(LDFLAGS) $(LIBS) $(LIBS2)
 
 src/%.o: src/%.c include/ulver.h
 	$(CC) -Iinclude $(CFLAGS) -g -o $@ -c $<

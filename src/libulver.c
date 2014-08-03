@@ -1206,6 +1206,9 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, ">", ulver_fun_higher);
         ulver_register_fun(env, "=", ulver_fun_equal);
         ulver_register_fun(env, "mod", ulver_fun_mod);
+        ulver_register_fun(env, "sin", ulver_fun_sin);
+        ulver_register_fun(env, "cos", ulver_fun_cos);
+
         ulver_register_fun(env, "print", ulver_fun_print);
         ulver_register_fun(env, "parse-integer", ulver_fun_parse_integer);
         ulver_register_fun(env, "setq", ulver_fun_setq);

@@ -144,3 +144,29 @@ ulver_object *ulver_fun_equal(ulver_env *env, ulver_form *argv) {
         return n0 == n1 ? env->t : env->nil;
 }
 
+ulver_object *ulver_fun_sin(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, "sin requires an argument");
+	ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
+	if (uo->type == ULVER_NUM) {
+		return ulver_object_from_float(env, sin(uo->n));
+	}
+	if (uo->type == ULVER_FLOAT) {
+		return ulver_object_from_float(env, sin(uo->d));
+	}
+	if (!argv) return ulver_error_form(env, argv, "is not a number");
+}
+
+ulver_object *ulver_fun_cos(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, "sin requires an argument");
+        ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type == ULVER_NUM) {
+                return ulver_object_from_float(env, cos(uo->n));
+        }
+        if (uo->type == ULVER_FLOAT) {
+                return ulver_object_from_float(env, cos(uo->d));
+        }
+        if (!argv) return ulver_error_form(env, argv, "is not a number");
+}
+

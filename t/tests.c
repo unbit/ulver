@@ -7,7 +7,7 @@ uint64_t tests_failed = 0;
 void tests();
 
 void test_float(char *s, double d) {
-	printf("- running test_float for \"%s\", expect %f\n", s, d);
+	//printf("- running test_float for \"%s\", expect %f\n", s, d);
 	ulver_object *ret = ulver_run(env, s);
 	if (!ret) {
 		ulver_report_error(env);
@@ -31,7 +31,7 @@ void test_float(char *s, double d) {
 }
 
 void test_num(char *s, int64_t n) {
-        printf("- running test_num for \"%s\", expect %lld\n", s, (long long int) n);
+        //printf("- running test_num for \"%s\", expect %lld\n", s, (long long int) n);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -55,7 +55,7 @@ void test_num(char *s, int64_t n) {
 }
 
 void test_two_nums(char *s, int64_t n, int64_t n2) {
-        printf("- running test_two_nums for \"%s\", expect %lld and %lld\n", s, (long long int) n, (long long int) n2);
+        //printf("- running test_two_nums for \"%s\", expect %lld and %lld\n", s, (long long int) n, (long long int) n2);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -103,7 +103,7 @@ void test_two_nums(char *s, int64_t n, int64_t n2) {
 }
 
 void test_true(char *s) {
-        printf("- running test_true for \"%s\"\n", s);
+        //printf("- running test_true for \"%s\"\n", s);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -121,7 +121,7 @@ void test_true(char *s) {
 }
 
 void test_string(char *s, char *str) {
-        printf("- running test_string for \"%s\"\n", s);
+        //printf("- running test_string for \"%s\"\n", s);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -145,7 +145,7 @@ void test_string(char *s, char *str) {
 }
 
 void test_nil(char *s) {
-        printf("- running test_nil for \"%s\"\n", s);
+        //printf("- running test_nil for \"%s\"\n", s);
         ulver_object *ret = ulver_run(env, s);
         if (!ret) {
                 ulver_report_error(env);
@@ -169,6 +169,7 @@ int main(int argc, char **argv) {
 	uint64_t i;
 	for(i=0;i<100;i++) {
 		env->gc_freq = i;
+		printf("running tests with gc frequency %llu\n", (unsigned long long) i);
 		tests();
 	}
 
@@ -276,5 +277,8 @@ void tests() {
 
 	test_num("(+ 2 (join-thread (make-thread (+ 5 1))) (join-thread (make-thread (* 4 2))) 1)", 17);
 	test_num("(join-thread (make-thread (join-thread (make-thread (join-thread (make-thread 17))))))", 17);
+
+	test_float("(sin 1)", sin(1));
+	test_float("(sin 1.0)", sin(1.0));
 
 }

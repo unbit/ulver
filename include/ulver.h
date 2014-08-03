@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <math.h>
 #include <uv.h>
 #ifndef __WIN32__
 #include <dlfcn.h>
