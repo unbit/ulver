@@ -1002,7 +1002,22 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 		return ulver_error(env, "unable to read() file %s: %s", filename, strerror(errno));
         }
 
-        ulver_form *uf = ulver_parse(env, buf, rlen);
+	// check for shebang
+	char *checked_buf = buf;
+	if (rlen > 2) {
+		if (buf[0] == '#' && buf[1] == '!') {
+			checked_buf++;
+			rlen--;
+			while(rlen > 0) {
+				checked_buf++;
+				rlen--;
+				if (*checked_buf == '\n') break;
+			}
+		}
+	}
+	if (rlen == 0) return NULL;
+
+        ulver_form *uf = ulver_parse(env, checked_buf, rlen);
 	env->free(env, buf, st.st_size);
 	ulver_object *ret = NULL;
         while(uf) {
