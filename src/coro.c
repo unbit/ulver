@@ -106,7 +106,6 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 	ulver_thread *ut = ulver_current_thread(env);
 	ulver_coro_context *ucc = env->alloc(env, sizeof(ulver_coro_context));
 	if (!ut->current_coro) {
-		printf("converting a thread to a fiber\n");
 		ucc->fiber = ConvertThreadToFiber(NULL);
 	}
 	return ucc;
@@ -114,7 +113,9 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 }
 void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 	ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
-	DeleteFiber(ucc->fiber);
+	if (coro != coro->thread->main_coro) {
+		DeleteFiber(ucc->fiber);
+	}
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
 }
 ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
