@@ -17,7 +17,7 @@ ifeq ($(OS), Windows_NT)
 else
 	OS=$(shell uname)
 	LDFLAGS=-rdynamic
-	LIBS=-luv -ldl -lpthread -lreadline
+	LIBS=-ldl -lpthread -lreadline
 	CFLAGS=-fPIC
 	ifeq ($(OS), Darwin)
 		CFLAGS+=-D_XOPEN_SOURCE -Wno-deprecated-declarations
@@ -27,7 +27,9 @@ else
 	endif
 	ifneq ("$(wildcard libuv/include/uv.h)","")
 		CFLAGS+=-Ilibuv/include
-		LDFLAGS+=-Llibuv/.libs
+		LDFLAGS+=libuv/.libs/libuv.a
+	else
+		LIBS += -luv
 	endif
 	LIBNAME=libulver.so
 	BINNAME=ulver
