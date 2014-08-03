@@ -142,7 +142,6 @@ void ulver_coro_fast_switch(ulver_env *env, ulver_coro *coro) {
 
 
 // platform independent functions
-
 void ulver_coro_yield(ulver_env *env, ulver_object *ret) {
         ulver_thread *ut = ulver_current_thread(env);
         ut->current_coro->ret = ret;

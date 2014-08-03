@@ -59,6 +59,11 @@ ulver_object *ulver_fun_coro_switch(ulver_env *env, ulver_form *argv) {
         ulver_object *coro = ulver_eval(env, argv);
         if (!coro) return NULL;
         if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-switch expects a coro");
+	// check for cross-thread violation
+	ulver_thread *ut = ulver_current_thread(env);
+	if (ut != coro->coro->thread) {
+                return ulver_error(env, "coro cross-thread violation !");
+	}
         // if the coro is dead, raise an error
         if (coro->coro->dead) {
                 return ulver_error(env, "coro is dead !");
@@ -87,6 +92,11 @@ ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
         ulver_object *coro = ulver_eval(env, argv);
         if (!coro) return NULL;
         if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
+	// check for cross-thread violation
+	ulver_thread *ut = ulver_current_thread(env);
+	if (ut != coro->coro->thread) {
+                return ulver_error(env, "coro cross-thread violation !");
+	}
         // if the coro is dead, raise an error
         if (coro->coro->dead) {
                 return ulver_error(env, "coro is dead !");
