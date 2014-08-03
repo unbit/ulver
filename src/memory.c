@@ -40,14 +40,8 @@ static void destroy_coro(ulver_env *, ulver_coro *);
 void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         // we are here when the thread is marked as dead.
 
+	// the main coro must be destroyed manually
 	destroy_coro(env, ut->main_coro);
-
-	ulver_coro *coro = ut->coros;
-	while(coro) {
-		ulver_coro *next = coro->next;
-		destroy_coro(env, coro);
-		coro = next;
-	}
 
         // hub ?
         ulver_hub_destroy(env, ut);
@@ -103,8 +97,9 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
                 env->free(env, uo->stream, sizeof(ulver_uv_stream));
         }
 
+	// if the coro get out of scope we can safely destroy it
 	if (uo->coro) {
-		//destroy_coro(env, uo->coro);
+		destroy_coro(env, uo->coro);
 	}
 
         if (uo->thread) {
@@ -149,6 +144,9 @@ static void mark_symbolmap(ulver_env *env, ulver_symbolmap *smap) {
                 while(us) {
                         // mark the object and its children
                         object_mark(env, us->value);
+			if (us->key) {
+				object_mark(env, us->key);
+			}
                         us = us->next;
                 }
         }

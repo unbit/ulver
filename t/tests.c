@@ -281,4 +281,9 @@ void tests() {
 	test_float("(sin 1)", sin(1));
 	test_float("(sin 1.0)", sin(1.0));
 
+	test_float("(cos 3.2)", cos(3.2));
+	test_float("(cos 5)", cos(5));
+
+	test_num("(setq *sharedht* (make-hash-table))(join-thread (make-thread (sethash *sharedht* :num1 17)))(gethash *sharedht* :num1)", 17);
+
 }

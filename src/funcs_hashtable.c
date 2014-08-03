@@ -41,7 +41,13 @@ ulver_object *ulver_fun_sethash(ulver_env *env, ulver_form *argv) {
 	ulver_object *val = ulver_eval(env, argv->next->next);
 	if (!val) return NULL;
 
-	ulver_symbolmap_set(env, ht->map, key->str, key->len, val, 1);
+	uv_rwlock_rdunlock(&env->gc_lock);
+	uv_rwlock_wrlock(&env->gc_lock);
+	ulver_symbol *us = ulver_symbolmap_set(env, ht->map, key->str, key->len, val, 1);
+	// map the symbol key to an object so we do not gc it
+	us->key = key;
+	uv_rwlock_wrunlock(&env->gc_lock);
+	uv_rwlock_rdlock(&env->gc_lock);
 
 	return val;
 }
