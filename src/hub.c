@@ -63,7 +63,9 @@ void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
         ut->hub_loop = NULL;
 }
 
-static void hub_loop(ulver_env *env, ulver_thread *ut) {
+static void hub_loop(ulver_coro *hub_coro) {
+	ulver_env *env = hub_coro->env;
+	ulver_thread *ut = hub_coro->thread;
 	// back to the creator coro
 	ulver_coro_switch(env, ut->hub_creator);
 	// run until there are scheduled or blocked coros
@@ -121,7 +123,7 @@ void ulver_hub(ulver_env *env) {
         ulver_thread *ut = ulver_current_thread(env);
         // is the hub already running ?
         if (ut->hub) return;
-	ut->hub = ulver_coro_new(env, hub_loop, ut);
+	ut->hub = ulver_coro_new(env, hub_loop, NULL);
         ut->hub_loop = uv_loop_new();
 	ut->hub_creator = ut->current_coro;
 	ulver_coro_switch(env, ut->hub);

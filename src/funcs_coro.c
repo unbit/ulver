@@ -1,12 +1,11 @@
 #include <ulver.h>
 
-static void coro_eval(ulver_env *env, ulver_form *argv) {
-        ulver_object *ret = ulver_eval(env, argv);
+static void coro_eval(ulver_coro *coro) {
+	ulver_env *env = coro->env;
+        ulver_object *ret = ulver_eval(env, coro->argv);
         ulver_thread *ut = ulver_current_thread(env);
-        // once here, mark the coro as dead, and switch back to the hub
-        ulver_coro *dead_coro = ut->current_coro;
-        dead_coro->dead = 1;
-        dead_coro->ret = ret;
+        coro->dead = 1;
+        coro->ret = ret;
         ulver_coro_switch(env, ut->hub);
         // never here !
 }
@@ -19,7 +18,8 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
         ulver_hub(env);
 
         // generate the new coro
-        ulver_coro *coro = ulver_coro_new(env, coro_eval, argv->next);
+        ulver_coro *coro = ulver_coro_new(env, coro_eval, NULL);
+	coro->argv = argv->next;
 
         // add the new coro
         if (!ut->coros) {

@@ -179,7 +179,9 @@ static void tcp_close(uv_handle_t* handle) {
 	uvs->coro->dead = 1;
 }
 
-static void tcp_client(ulver_env *env, ulver_uv_stream *stream) {
+static void tcp_client(ulver_coro *tcp_coro) {
+	ulver_env *env = tcp_coro->env;
+	ulver_uv_stream *stream = (ulver_uv_stream *) tcp_coro->data;
 	ulver_object *uo = ulver_object_new(env, ULVER_STREAM);
 	uo->stream = stream;
 
@@ -204,7 +206,9 @@ static void tcp_server_on_connect(uv_stream_t* handle, int status) {
 	ulver_coro_switch(uvs->env, uvs->coro);
 }
 
-static void tcp_server(ulver_env *env, ulver_uv_stream *uvs) {
+static void tcp_server(ulver_coro *tcp_coro) {
+	ulver_env *env = tcp_coro->env;
+	ulver_uv_stream *uvs = (ulver_uv_stream *) tcp_coro->data;
 	ulver_thread *ut = ulver_current_thread(env);
         uv_listen(&uvs->handle.s, 128, tcp_server_on_connect);
 	ulver_coro_switch(env, ut->hub);

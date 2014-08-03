@@ -88,6 +88,9 @@ struct ulver_coro {
 	ulver_coro *waiting_for;
 	// this is required to avoid cross-thread violation
 	ulver_thread *thread;
+	ulver_env *env;
+	ulver_form *argv;
+	void *data;
 };
 
 struct ulver_thread {

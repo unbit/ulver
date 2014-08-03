@@ -39,11 +39,13 @@ void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
 }
 
-ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
+ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
         ulver_coro *coro = env->alloc(env, sizeof(ulver_coro));
 	ulver_coro_context *ucc = ulver_coro_alloc_context(env);
 	coro->context = ucc;
+	coro->env = env;
 	coro->thread = ulver_current_thread(env);
+	coro->data = data;
         getcontext(&ucc->context);
         size_t len= 0 ;
         int off = 0;
@@ -61,7 +63,7 @@ ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
         ucc->context.uc_stack.ss_size = len;
         ucc->context.uc_stack.ss_flags = 0;
 
-	makecontext(&ucc->context, func, 2, env, arg2);
+	makecontext(&ucc->context, func, 1, coro);
         return coro;
 }
 
@@ -115,11 +117,14 @@ void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 	DeleteFiber(ucc->fiber);
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
 }
-ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *arg2) {
+ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
         ulver_coro *coro = env->alloc(env, sizeof(ulver_coro));
 	ulver_coro_context *ucc = ulver_coro_alloc_context(env);
 	coro->context = ucc;
-	ucc->fiber = CreateFiber(32768, func, env);
+	coro->thread = ulver_current_thread(env);
+	coro->env = env;
+	coro->data = data;
+	ucc->fiber = CreateFiber(32768, func, coro);
         return coro;
 }
 void ulver_coro_switch(ulver_env *env, ulver_coro *coro) {
