@@ -43,6 +43,16 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
 	// the main coro must be destroyed manually
 	destroy_coro(env, ut->main_coro);
 
+	// if there are coros still alive, mark them as dead
+	// and set their thread attribute to NULL
+	// (even if probably it will be useless)
+	ulver_coro *coros = ut->coros;
+	while(coros) {
+		coros->dead = 1;
+		coros->thread = NULL;
+		coros = coros->next;
+	}
+
         // hub ?
         ulver_hub_destroy(env, ut);
 
@@ -170,8 +180,11 @@ static void destroy_coro(ulver_env *env, ulver_coro *coro) {
 		next->prev = prev;
 	}
 
-	if (coro == coro->thread->coros) {
-		coro->thread->coros = next;
+	// a coro could be orphaned
+	if (coro->thread) {
+		if (coro == coro->thread->coros) {
+			coro->thread->coros = next;
+		}
 	}
 
 	ulver_coro_free_context(env, coro);

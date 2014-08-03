@@ -28,7 +28,7 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 }
 
 void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
-	if (coro != coro->thread->main_coro) {
+	if (coro->thread && coro != coro->thread->main_coro) {
 		ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
 #ifdef SPLITSTACK
 		__splitstack_releasecontext(ucc->ss_contexts);
@@ -113,7 +113,7 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 }
 void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 	ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
-	if (coro != coro->thread->main_coro) {
+	if (coro->thread && coro != coro->thread->main_coro) {
 		DeleteFiber(ucc->fiber);
 	}
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
