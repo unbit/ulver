@@ -31,8 +31,9 @@ void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 	if (coro != coro->thread->main_coro) {
 		ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
 #ifdef SPLITSTACK
-		munmap(ucc->stack - 4096, 32768 + 8192);
 		__splitstack_releasecontext(ucc->ss_contexts);
+#else
+		munmap(ucc->stack - 4096, 32768 + 8192);
 #endif
 	}
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
