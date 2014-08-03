@@ -1027,7 +1027,7 @@ ulver_object *ulver_run(ulver_env *env, char *source) {
 void ulver_thread_destroy(ulver_env *, ulver_thread *, uint8_t);
 uint64_t ulver_destroy(ulver_env *env) {
 
-	if (uv_thread_self() != env->creator_thread) {
+	if (uv_thread_self() != (unsigned long) env->creator_thread) {
 		printf("[WARNING] only the creator thread can destroy a ulver environment\n");
 		return env->mem;
 	}
@@ -1104,7 +1104,7 @@ ulver_thread *ulver_current_thread(ulver_env *env) {
         uv_key_set(&env->thread, (void *) ut);
 
 	ut->env = env;
-	ut->t = uv_thread_self();
+	ut->t = (uv_thread_t) uv_thread_self();
 
 	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
 	ut->main_coro->thread = ut;
@@ -1129,7 +1129,7 @@ ulver_env *ulver_init() {
 
         ulver_env *env = calloc(1, sizeof(ulver_env));
 
-	env->creator_thread = uv_thread_self();
+	env->creator_thread = (uv_thread_t) uv_thread_self();
 	if (uv_key_create(&env->thread)) {
 		ulver_destroy(env);
 		return NULL;
@@ -1142,6 +1142,7 @@ ulver_env *ulver_init() {
 	env->_stderr = stderr;
 
 	uv_mutex_init(&env->mem_lock);
+	uv_mutex_init(&env->sources_lock);
 
 	uv_rwlock_init(&env->threads_lock);
 	uv_rwlock_init(&env->gc_lock);

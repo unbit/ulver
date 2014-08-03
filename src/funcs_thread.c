@@ -28,7 +28,7 @@ void run_new_thread(void *arg) {
         // this will create the memory structures
         // for the new thread
         ulver_thread *ut = ulver_current_thread(env);
-        ut->t = uv_thread_self();
+        ut->t = (uv_thread_t) uv_thread_self();
 
         // wake up the spinning creator thread
         to->thread = ut;

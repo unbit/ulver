@@ -7,9 +7,16 @@ ifeq ($(OS), Windows_NT)
 	BINNAME=ulver.exe
 	TEST=ulver_tests.exe
 else
+	OS=$(shell uname)
 	LDFLAGS=libuv/.libs/libuv.a -rdynamic -ldl
 	LIBS=-lpthread -lreadline
-	CFLAGS=-Ilibuv/include -fPIC -fuse-ld=gold -fsplit-stack
+	CFLAGS=-Ilibuv/include -fPIC
+	ifeq ($(OS), Darwin)
+		CFLAGS+=-D_XOPEN_SOURCE -Wno-deprecated-declarations
+	endif	
+	ifeq ($(SPLITSTACK), 1)
+		CFLAGS+=-fuse-ld=gold -fsplit-stack -DSPLITSTACK
+	endif
 	LIBNAME=libulver.so
 	BINNAME=ulver
 	TEST=ulver_tests
@@ -28,7 +35,7 @@ $(LIBNAME):
 	$(CC) -shared -o $(LIBNAME) $(OBJECTS) $(LDFLAGS) $(LIBS)
 
 test: libulver.a
-	@$(CC) -Iinclude -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
+	@$(CC) -Iinclude -g $(CFLAGS) -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
 	@./ulver_tests
 	@rm $(TEST)
 

@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include <uv.h>
 #ifndef __WIN32__
 #include <dlfcn.h>
@@ -89,7 +91,7 @@ struct ulver_coro {
 };
 
 struct ulver_thread {
-	unsigned long t;
+	uv_thread_t t;
 	ulver_thread *prev;
 	ulver_thread *next;
 	// when set, the structure can be destroyed
