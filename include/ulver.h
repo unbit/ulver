@@ -402,3 +402,4 @@ void ulver_hub_destroy(ulver_env *, ulver_thread *);
 
 ulver_object *ulver_call0(ulver_env *, ulver_object *);
 void ulver_err_table_fill(ulver_env *);
+uint8_t ulver_error_code(ulver_env *);

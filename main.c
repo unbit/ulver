@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 			ulver_form *uf = ulver_parse(env, line, len);		
 			free(line);
 			if (!uf) {
-				printf("unable to parse expression\n");
+				ulver_report_error(env);
 				continue;
 			}
 			while(uf) {

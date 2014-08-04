@@ -6,6 +6,23 @@ uint64_t tests_failed = 0;
 
 void tests();
 
+void test_error(char *s, uint8_t code) {
+	//printf("- running test_error for \"%s\", expect %d\n", s, code);
+	ulver_object *ret = ulver_run(env, s);
+	if (ret) {
+		printf("[FAILED] test for %s: did not returned an error\n", s);
+                tests_failed++;
+                return;
+	}
+	uint8_t error_code = ulver_error_code(env);
+	if (error_code != code) {
+		printf("[FAILED] test for %s: error code %d is not %d\n", s, error_code, code);
+                tests_failed++;
+                return;
+	}
+	tests_successfull++;
+}
+
 void test_float(char *s, double d) {
 	//printf("- running test_float for \"%s\", expect %f\n", s, d);
 	ulver_object *ret = ulver_run(env, s);
@@ -285,5 +302,9 @@ void tests() {
 	test_float("(cos 5)", cos(5));
 
 	test_num("(setq *sharedht* (make-hash-table))(join-thread (make-thread (sethash *sharedht* :num1 17)))(gethash *sharedht* :num1)", 17);
+
+	test_error("(1", ULVER_ERR_PARSE);
+
+	test_error("(+ 1 :foo)", ULVER_ERR_NOT_NUMFLOAT);
 
 }

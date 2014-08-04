@@ -41,6 +41,7 @@ ulver_object *ulver_error_form(ulver_env *env, uint8_t type, ulver_form *uf, cha
         // when trying to set an error, check if a previous one is set
 	// and eventually clear it
 
+	ut->err_code = ULVER_ERR_NOERROR;
         ut->error = NULL;
         ut->error_len = 0;
 	ut->error_form = NULL;
@@ -150,3 +151,10 @@ void ulver_err_table_fill(ulver_env *env) {
 	}
 }
 
+uint8_t ulver_error_code(ulver_env *env) {
+	ulver_thread *ut = ulver_current_thread(env);
+	uint8_t err_code = ut->err_code;	
+	// clear error
+        ulver_error(env, ULVER_ERR_NOERROR);
+	return err_code;
+}
