@@ -74,7 +74,7 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
                 ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, colon-name, 1);
 		uv_rwlock_rdunlock(&env->packages_lock);
                 if (!package) {
-                        ulver_error(env, "unable to find package %.*s", colon-name, name);
+                        ulver_error_form(env, ULVER_ERR_PKG_NOTFOUND, NULL, "unable to find package");
 			*len = 0;
                         return NULL;
                 }
@@ -88,7 +88,7 @@ static char *resolve_symbol_name(ulver_env *env, char *name, uint64_t *len, uint
                         		us = us->next;
                 		}
         		}	
-                        ulver_error(env, "package %.*s does not export symbol %.*s", colon-name, name, *len - ((colon + 1) - name), colon + 1);
+                        ulver_error_form(env, ULVER_ERR_PKG, NULL, "package does not export symbol");
 			*len = 0;
                         return NULL;
                 }

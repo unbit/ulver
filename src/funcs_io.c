@@ -5,14 +5,14 @@ static void ulver_open_cb(uv_fs_t *fs) {
 }
 
 ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "open requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_object *uo = ulver_eval(env, argv);
         if (!uo) return NULL;
-        if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string");
+        if (uo->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING);
         int mode = O_RDONLY;
         if (argv->next) {
                 ulver_form *direction = argv->next;
-                if (direction->type != ULVER_KEYWORD) return ulver_error_form(env, direction, "must be a keyword");
+                if (direction->type != ULVER_KEYWORD) return ulver_error(env, ULVER_ERR_NOT_KEYSTRING);
                 if (direction->len == 6 && !ulver_utils_memicmp(direction->value, ":input", 6)) {
                         mode = O_RDONLY;
                 }
@@ -28,7 +28,7 @@ ulver_object *ulver_fun_open(ulver_env *env, ulver_form *argv) {
 	ulver_thread *ut = ulver_current_thread(env);
 	ulver_object *stream = ulver_object_new(env, ULVER_STREAM);
 	if (uv_fs_open(ut->hub_loop, &stream->file, uo->str, mode, 0, ulver_open_cb) < 0) {
-                return ulver_error(env, "unable to open file");
+                return ulver_error_form(env, ULVER_ERR_IO, NULL, "unable to open file");
         }
 
 	ulver_coro_switch(env, ut->hub);
@@ -55,15 +55,15 @@ static void ulver_reader_switch_cb(uv_stream_t* handle, ssize_t nread, const uv_
 }
 
 ulver_object *ulver_fun_read_string(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next) return ulver_error(env, "read-string requires two arguments");
+        if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 
         ulver_object *stream = ulver_eval(env, argv);
         if (!stream) return NULL;
-        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+        if (stream->type != ULVER_STREAM) return ulver_error(env, ULVER_ERR_NOT_STREAM);
 
         ulver_object *amount = ulver_eval(env, argv->next);
         if (!amount) return NULL;
-        if (amount->type != ULVER_NUM) return ulver_error_form(env, argv->next, "is not a num");
+        if (amount->type != ULVER_NUM) return ulver_error(env, ULVER_ERR_NOT_NUM);
 
         ulver_thread *ut = ulver_current_thread(env);
 
@@ -93,15 +93,15 @@ static void ulver_writer_switch_cb(uv_write_t* handle, int status) {
 }
 
 ulver_object *ulver_fun_write_string(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next) return ulver_error(env, "write-string requires two arguments");
+        if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 
 	ulver_object *stream = ulver_eval(env, argv);
 	if (!stream) return NULL;
-	if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+	if (stream->type != ULVER_STREAM) return ulver_error(env, ULVER_ERR_NOT_STREAM);
 
 	ulver_object *body = ulver_eval(env, argv->next);
         if (!body) return NULL;
-        if (body->type != ULVER_STRING) return ulver_error_form(env, argv->next, "is not a string");
+        if (body->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING);
 
 	ulver_thread *ut = ulver_current_thread(env);
 
@@ -160,7 +160,7 @@ void ulver_uv_new_timer(ulver_env *env, uint64_t timeout, uint64_t repeat) {
 }
 
 ulver_object *ulver_fun_sleep(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "sleep requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_thread *ut = ulver_current_thread(env);
         ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
@@ -249,18 +249,18 @@ static void tcp_server(ulver_coro *tcp_coro) {
 }
 
 ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next || !argv->next->next) ulver_error(env, "make-tcp-server requires three arguments");
+        if (!argv || !argv->next || !argv->next->next) ulver_error(env, ULVER_ERR_THREE_ARG);
         ulver_object *addr = ulver_eval(env, argv);
         if (!addr) return NULL;
-        if (addr->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+        if (addr->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING);
 
         ulver_object *port = ulver_eval(env, argv->next);
         if (!port) return NULL;
-        if (port->type != ULVER_NUM) return ulver_error_form(env, argv->next, "is not a string");
+        if (port->type != ULVER_NUM) return ulver_error(env, ULVER_ERR_NOT_STRING);
 
         ulver_object *on_client = ulver_eval(env, argv->next->next);
         if (!on_client) return NULL;
-        if (on_client->type != ULVER_FUNC) return ulver_error_form(env, argv->next->next, "is not a function");
+        if (on_client->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
 	// manually manage the lambda_list
 	on_client->no_lambda = 1;
 	
@@ -315,10 +315,10 @@ ulver_object *ulver_fun_make_tcp_server(ulver_env *env, ulver_form *argv) {
 
 /*
 ulver_object *ulver_fun_make_pipe(ulver_env *env, ulver_form *argv) {
-	if (!argv) ulver_error(env, "make-pipe requires an argument");
+	if (!argv) ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *cmd = ulver_eval(env, argv);
 	if (!cmd) return NULL;
-	if (cmd->type != ULVER_STRING) return ulver_error_form(env, argv, "is not a string");
+	if (cmd->type != ULVER_STRING) return ulver_error(env, argv, "is not a string");
 
 	// ensure the hub is running
 	ulver_hub(env);

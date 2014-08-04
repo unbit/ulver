@@ -43,7 +43,7 @@ ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
         if (argv) {
                 stream = ulver_eval(env, argv);
                 if (!stream) return NULL;
-                if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+                if (stream->type != ULVER_STREAM) return ulver_error(env, ULVER_ERR_NOT_STREAM);
         }
 	//if (stream->closed) return ulver_error(env, "stream is closed");
         uint64_t slen = 0;
@@ -51,54 +51,23 @@ ulver_object *ulver_fun_read(ulver_env *env, ulver_form *argv) {
         //if (!buf) return ulver_error(env, "error reading from fd %d", stream->fd);
         ulver_form *uf = ulver_parse(env, buf, slen);
         //free(buf);
-	if (!uf) return ulver_error(env, "unable to parse");
+	if (!uf) return ulver_error(env, ULVER_ERR_PARSE);
         ulver_object *form = ulver_object_new(env, ULVER_FORM);
         form->form = uf;
        	return form;
 }
 
 
-ulver_object *ulver_fun_find(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "find requires two arguments");	
-	ulver_object *item = ulver_eval(env, argv);
-	if (!item) return NULL;
-	ulver_object *sequence = ulver_eval(env, argv->next);
-	if (!sequence) return NULL;
-	if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
-
-	ulver_object_item *found = sequence->list;
-	while(found) {
-		if (ulver_utils_eq(found->o, item)) return found->o;
-		found = found->next;
-	}	
-
-	return env->nil;
-}
-
-ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next) return ulver_error(env, "position requires two arguments");
-        ulver_object *item = ulver_eval(env, argv);
-        if (!item) return NULL;
-        ulver_object *sequence = ulver_eval(env, argv->next);
-        if (!sequence) return NULL;
-        if (sequence->type != ULVER_LIST) return ulver_error_form(env, argv->next, "is not a list");
-
-	uint64_t count = 0;
-        ulver_object_item *found = sequence->list;
-        while(found) {
-                if (ulver_utils_eq(found->o, item)) return ulver_object_from_num(env, count);
-		count++;
-                found = found->next;
-        }
-        return env->nil;
-}
-
 static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *uf) {
 	ulver_thread *ut = ulver_current_thread(env);
 
-	ut->current_coro->caller = u_func;
 	// add a new stack frame
         ulver_stack_push(env, ut, ut->current_coro);
+
+	// set caller and args
+	ut->current_coro->stack->caller = u_func;
+	ut->current_coro->stack->argv = uf;
+
 	// call the function
         ulver_object *ret = u_func->func(env, uf);
 
@@ -111,26 +80,26 @@ static ulver_object *call_do(ulver_env *env, ulver_object *u_func, ulver_form *u
 }
 
 ulver_object *ulver_fun_funcall(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "funcall requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_object *u_func = ulver_eval(env, argv);
         if (!u_func) return NULL;
-        if (u_func->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
+        if (u_func->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
 
         return call_do(env, u_func, argv->next);
 }
 
 ulver_object *ulver_fun_eval(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "eval requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
 	if (uo->type == ULVER_FORM || uo->type == ULVER_LIST) {
         	return ulver_eval(env, uo->form);
 	}
-	return ulver_error(env, "eval requires a form as argument");
+	return ulver_error(env, ULVER_ERR_NOT_FORM);
 }
 
 ulver_object *ulver_fun_quote(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "quote requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	// generate the form object (could be a list)
 	ulver_object *uo = NULL;
 	if (argv->type == ULVER_LIST) {
@@ -152,7 +121,7 @@ ulver_object *ulver_fun_quote(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_eq(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "eq requires two arguments");
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 	ulver_object *uo1 = ulver_eval(env, argv);
 	if (!uo1) return NULL;
 	ulver_object *uo2 = ulver_eval(env, argv->next);
@@ -162,10 +131,10 @@ ulver_object *ulver_fun_eq(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "in-package requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *package_name = ulver_eval(env, argv);
         if (!package_name || (package_name->type != ULVER_STRING && package_name->type != ULVER_KEYWORD))
-                return ulver_error(env, "package name must be a string or a keyword");
+                return ulver_error(env, ULVER_ERR_NOT_KEYSTRING);
 
 	// if we use a keyword, remove the colon
         char *name = package_name->str;
@@ -178,7 +147,7 @@ ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
 	ulver_symbol *package = ulver_symbolmap_get(env, env->packages, name, len, 1);
 	uv_rwlock_rdunlock(&env->packages_lock);
 	if (!package) {
-		return ulver_error(env, "unable to find package %.*s", len, name);
+		return ulver_error(env, ULVER_ERR_PKG_NOTFOUND);
 	}
 	uv_rwlock_wrlock(&env->packages_lock);
 	env->current_package = package->value;
@@ -188,11 +157,11 @@ ulver_object *ulver_fun_in_package(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_defpackage(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "defpackage requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 
 	ulver_object *package_name = ulver_eval(env, argv);
 	if (!package_name || (package_name->type != ULVER_STRING && package_name->type != ULVER_KEYWORD))
-		return ulver_error(env, "package name must be a string or a keyword");
+		return ulver_error(env, ULVER_ERR_NOT_KEYSTRING);
 
 	// if we use a keyword, remove the colon
 	char *name = package_name->str;
@@ -235,10 +204,10 @@ next:
 }
 
 ulver_object *ulver_fun_load(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "load requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
-	if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "must be a string"); 
+	if (uo->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING); 
 	char *filename = ulver_utils_strndup(env, uo->str, uo->len);
 	ulver_object *ret = ulver_load(env, filename);
 	env->free(env, filename, uo->len+1);
@@ -249,17 +218,18 @@ ulver_object *ulver_fun_exit(ulver_env *env, ulver_form *argv) {
 	exit(ulver_destroy(env));
 }
 
+// TODO fix it !!!
 ulver_object *ulver_fun_error(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "error requires an argument");
-	if (argv->type != ULVER_STRING) {
-		return ulver_error_form(env, argv, "must be a string"); 
-	}
-	return ulver_error(env, argv->value, argv->len);
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	ulver_object *us = ulver_eval(env, argv);
+	if (!us) return NULL;
+	if (us->type != ULVER_STRING) return ulver_error_form(env, ULVER_ERR_NOT_STRING, argv, NULL); 
+	return ulver_error_form(env, ULVER_ERR_CUSTOM, NULL, us->str);
 }
 
 ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "unintern requires an argument");
-	if (argv->type != ULVER_SYMBOL) return ulver_error(env, "unintern requires a symbol name as argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
 	if (!ulver_symbol_delete(env, argv->value, argv->len)) {
 		return env->t;
 	}
@@ -267,16 +237,16 @@ ulver_object *ulver_fun_unintern(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_function(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "function requires an argument");
-        if (argv->type != ULVER_SYMBOL) return ulver_error(env, "function requires a symbol as argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+        if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
 
 	uv_rwlock_rdlock(&env->funcs_lock);
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, argv->value, argv->len, 0);
 	uv_rwlock_rdunlock(&env->funcs_lock);
 
-        if (!func_symbol) return ulver_error_form(env, argv, "undefined function");
-	if (!func_symbol->value) return ulver_error_form(env, argv, "undefined function");
-	if (func_symbol->value->type != ULVER_FUNC) return ulver_error_form(env, argv, "is not a function");
+        if (!func_symbol) return ulver_error(env, ULVER_ERR_UNK_FUNC);
+	if (!func_symbol->value) return ulver_error(env, ULVER_ERR_UNK_FUNC);
+	if (func_symbol->value->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
         return func_symbol->value;
 }
 
@@ -287,15 +257,14 @@ ulver_object *ulver_fun_gc(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) {
-	// lambda and progn must be read before the lisp engine changes env->caller
 	ulver_thread *ut = ulver_current_thread(env);
-	ulver_form *uf = ut->current_coro->caller->lambda_list;
-	ulver_form *progn = ut->current_coro->caller->form;
+	ulver_form *uf = ut->current_coro->stack->caller->lambda_list;
+	ulver_form *progn = ut->current_coro->stack->caller->form;
 
-	if (!ut->current_coro->caller->no_lambda) {
+	if (!ut->current_coro->stack->caller->no_lambda) {
 		while(uf) {
 			if (!argv) {
-				return ulver_error(env, "missing argument %.*s for lambda_list", (int) uf->len, uf->value);
+				return ulver_error_form(env, ULVER_ERR_LAMBDA, uf, "missing argument for lambda_list");
 			}
 			if (uf->len > 0 && uf->value[0] == '&') {
 				//TODO manage keywords
@@ -316,7 +285,7 @@ ulver_object *ulver_fun_call_with_lambda_list(ulver_env *env, ulver_form *argv) 
 }
 
 ulver_object *ulver_fun_defun(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "defun requires two arguments");	
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);	
 	ulver_symbol *us = NULL;
 	// is the function commented ?
 	if (argv->next->next && argv->next->next->type == ULVER_STRING) {
@@ -329,7 +298,7 @@ ulver_object *ulver_fun_defun(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_lambda(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next) return ulver_error(env, "lambda requires two arguments");
+        if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 	ulver_object *uo = ulver_object_new(env, ULVER_FUNC);
         uo->func = ulver_fun_call_with_lambda_list;
         uo->lambda_list = argv->list;
@@ -338,7 +307,7 @@ ulver_object *ulver_fun_lambda(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "car requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo->list) {
 		return env->nil;
@@ -347,7 +316,7 @@ ulver_object *ulver_fun_car(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_atom(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "atom requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
         if (!uo->list) {
                 return env->t;
@@ -356,7 +325,7 @@ ulver_object *ulver_fun_atom(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_cdr(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "cdr requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo->list) return env->nil;
 	if (!uo->list->next) return env->nil;
@@ -370,7 +339,7 @@ ulver_object *ulver_fun_cdr(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_cons(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "cons requires two arguments");
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
         ulver_object *cons = ulver_object_new(env, ULVER_LIST);
         ulver_object_push(env, cons, ulver_eval(env, argv));
         ulver_object_push(env, cons, ulver_eval(env, argv->next));
@@ -378,7 +347,7 @@ ulver_object *ulver_fun_cons(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "list requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *list = ulver_object_new(env, ULVER_LIST);
 	while(argv) {
 		ulver_object *uo = ulver_eval(env, argv);
@@ -390,7 +359,7 @@ ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_if(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "if requires two arguments");
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (uo != env->nil) {
 		return ulver_eval(env, argv->next);
@@ -421,12 +390,12 @@ ulver_object *ulver_fun_cond(ulver_env *env, ulver_form *argv) {
 
 // TODO check for symbol
 ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "let requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_form *vars = argv->list;
 	while(vars) {
 		ulver_form *var = vars->list;	
-		if (!var) return ulver_error_form(env, vars, "not usable as local var");
-		if (!var->next) return ulver_error_form(env, vars, "not usable as local var");
+		if (!var) return ulver_error_form(env, ULVER_ERR_LAMBDA, argv, "not usable as local var");
+		if (!var->next) return ulver_error_form(env, ULVER_ERR_LAMBDA, argv, "not usable as local var");
 		ulver_object *value = ulver_eval(env, var->next);
 		if (!value) return NULL;
 		ulver_symbol_set(env, var->value, var->len, value);
@@ -437,8 +406,8 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, "setq requires two arguments");
-	if (argv->type != ULVER_SYMBOL) return ulver_error_form(env, argv, "is not a symbol");
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
+	if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
 	ulver_object *uo = ulver_eval(env, argv->next);
 	if (!uo) return NULL;
 	// first of all check if the local variable is already defined
@@ -470,10 +439,10 @@ ulver_object *ulver_fun_progn(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_close(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "close requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *stream = ulver_eval(env, argv);
         if (!stream) return NULL;
-        if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+        if (stream->type != ULVER_STREAM) return ulver_error(env, ULVER_ERR_NOT_STREAM);
 /*
 	if (stream->closed) {
 		return env->nil;
@@ -488,7 +457,7 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 	if (argv) {
 		stream = ulver_eval(env, argv);
 		if (!stream) return NULL;
-		if (stream->type != ULVER_STREAM) return ulver_error_form(env, argv, "is not a stream");
+		if (stream->type != ULVER_STREAM) return ulver_error(env, ULVER_ERR_NOT_STREAM);
 	}
 	//if (stream->closed) return ulver_error(env, "stream is closed");
 	uint64_t slen = 0;
@@ -500,7 +469,7 @@ ulver_object *ulver_fun_read_line(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "print requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);	
 	if (!uo) return NULL;
 	if (uo->type == ULVER_LIST) {
@@ -571,11 +540,11 @@ ulver_object *ulver_fun_print(ulver_env *env, ulver_form *argv) {
 
 // TODO find something better (and safer) than strtoll
 ulver_object *ulver_fun_parse_integer(ulver_env *env, ulver_form *argv) {
-	if (!argv) return ulver_error(env, "parse-integer requires an argument");
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
 	ulver_object *uo = ulver_eval(env, argv);
 	if (!uo) return NULL;
-	if (uo->type != ULVER_STRING) return ulver_error_form(env, argv, "parse-integer expects a string");
-	if (!ulver_utils_is_a_number(uo->str, uo->len)) return ulver_error_form(env, argv, "does not have integer syntax");
+	if (uo->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING);
+	if (!ulver_utils_is_a_number(uo->str, uo->len)) return ulver_error(env, ULVER_ERR_NOT_NUM);
         return ulver_object_from_num(env, strtoll(uo->str, NULL, 10));
 }
 
@@ -722,7 +691,7 @@ ulver_object *ulver_symbol_get(ulver_env *env, char *name, uint64_t len) {
 ulver_object *ulver_object_from_symbol(ulver_env *env, ulver_form *uf) {
 	ulver_object *uo = ulver_symbol_get(env, uf->value, uf->len);
 	if (!uo) {
-		return ulver_error_form(env, uf, "variable not bound"); 
+		return ulver_error(env, ULVER_ERR_UNBOUND); 
 	}
 	return uo;
 }
@@ -750,68 +719,18 @@ ulver_object *ulver_object_push(ulver_env *env, ulver_object *list, ulver_object
 }
 
 ulver_object *ulver_call0(ulver_env *env, ulver_object *func) {
-	if (!func || func->type != ULVER_FUNC) return ulver_error(env, "object is not a function");
+	if (!func || func->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
 	return call_do(env, func, NULL);
 }
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	if (!uf) return env->nil;
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, uf->value, uf->len, 0);
-	if (!func_symbol) return ulver_error_form(env, uf, "undefined function");
+	if (!func_symbol) return ulver_error(env, ULVER_ERR_UNK_FUNC);
 	ulver_object *func = func_symbol->value;
-	if (!func || func->type != ULVER_FUNC) return ulver_error_form(env, uf, "is not a function");
+	if (!func || func->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
 
 	return call_do(env, func, uf->next);
-}
-
-ulver_object *ulver_error_form(ulver_env *env, ulver_form *uf, char *msg) {
-	return ulver_error(env, "[line: %llu pos: %lld] (%.*s) %s", uf->line, uf->line_pos, (int) uf->len, uf->value, msg);
-}
-
-ulver_object *ulver_error(ulver_env *env, char *fmt, ...) {
-	ulver_thread *ut = ulver_current_thread(env);
-	// when trying to set an error, check if a previous one is set
-	if (ut->current_coro->error) {
-		// if we are not setting a new error, we are attempting to free it...
-		if (!fmt) {
-			env->free(env, ut->current_coro->error, ut->current_coro->error_buf_len);
-			ut->current_coro->error = NULL;
-			ut->current_coro->error_len = 0;
-			ut->current_coro->error_buf_len = 0;
-		}
-		return NULL;
-	}
-	if (!fmt) return NULL;
-	uint64_t buf_size = 1024;
-	char *buf = env->alloc(env, buf_size);
-	va_list varg;
-	va_start(varg, fmt);
-	int ret = vsnprintf(buf, buf_size, fmt, varg);	
-	va_end(varg);
-	if (ret <= 0) goto fatal;
-	if (ret+1 > buf_size) {
-		int64_t new_size = ret;
-		env->free(env, buf, buf_size);
-		buf_size = new_size + 1;
-		buf = env->alloc(env, buf_size);
-		va_start(varg, fmt);
-        	ret = vsnprintf(buf, buf_size, fmt, varg);
-        	va_end(varg);
-        	if (ret <= 0 || ret + 1 > buf_size) {
-			goto fatal;
-        	}
-	} 
-	ut->current_coro->error = buf;
-	ut->current_coro->error_len = ret;
-	ut->current_coro->error_buf_len = buf_size;
-	return NULL;
-
-fatal:
-	env->free(env, buf, buf_size);
-	ut->current_coro->error = ulver_utils_strdup(env, "FATAL ERROR");
-        ut->current_coro->error_len = strlen(ut->current_coro->error);
-	ut->current_coro->error_buf_len = ut->current_coro->error_len + 1;
-        return NULL;
 }
 
 static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, uint8_t as_list) {
@@ -865,7 +784,7 @@ static ulver_object *eval_do(ulver_env *env, ulver_thread *ut, ulver_form *uf, u
 	// allow the GC to run
 	uv_rwlock_rdunlock(&env->gc_lock);
 
-	if (ut->current_coro->error) {
+	if (ut->error) {
 		ret = NULL;
 	}
 
@@ -958,24 +877,24 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 		HINSTANCE module = LoadLibrary(TEXT(filename));
 		if (!module) {
 			env->free(env, entry_point, strlen(entry_point)+1);
-			return ulver_error(env, "unable to load library %s: error code %d", filename, GetLastError());
+			return ulver_error_form(env, ULVER_ERR_IO, NULL, "unable to load library");
 		}
 		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) GetProcAddress(module, entry_point);
 #else
 		void *module = dlopen(filename, RTLD_NOW | RTLD_GLOBAL);
 		if (!module) {
 			env->free(env, entry_point, strlen(entry_point)+1);
-			return ulver_error(env, "unable to load library %s", dlerror());
+			return ulver_error_form(env, ULVER_ERR_IO, NULL, "unable to load library");
 		}
 		int (*module_init)(ulver_env *) = (int (*)(ulver_env *)) dlsym(module, entry_point);
 #endif
 		env->free(env, entry_point, strlen(entry_point)+1);
 		if (!module_init) {
-			return ulver_error(env, "%s is not a ulver library", filename);
+			return ulver_error_form(env, ULVER_ERR_IO, NULL, "is not a ulver library");
 		}
 
 		if (module_init(env)) {
-			return ulver_error(env, "unable to initialize library");;
+			return ulver_error_form(env, ULVER_ERR_IO, NULL, "unable to initialize library");
 		}
 		return env->t;
 	}
@@ -983,13 +902,13 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 	
 	int fd = open(filename, O_RDONLY);
         if (fd < 0) {
-		return ulver_error(env, "unable to open() file %s: %s", filename, strerror(errno));
+		return ulver_error_form(env, ULVER_ERR_IO, NULL, NULL);
         }
 
         struct stat st;
         if (fstat(fd, &st)) {
 		close(fd);
-		return ulver_error(env, "unable to stat() file %s: %s", filename, strerror(errno));
+		return ulver_error_form(env, ULVER_ERR_IO, NULL, NULL);
         }
 
 	// we use low-level emory allocation, as it will be freed soon
@@ -999,7 +918,7 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 	close(fd);
         if (rlen != st.st_size) {
 		env->free(env, buf, st.st_size);
-		return ulver_error(env, "unable to read() file %s: %s", filename, strerror(errno));
+		return ulver_error_form(env, ULVER_ERR_IO, NULL, "unable to read() file");
         }
 
 	// check for shebang
@@ -1019,6 +938,11 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 
         ulver_form *uf = ulver_parse(env, checked_buf, rlen);
 	env->free(env, buf, st.st_size);
+	// set the filename for better debugging
+	if (uf) {
+		uf->source->filename = ulver_utils_strndup(env, filename, strlen(filename));
+		uf->source->filename_len = strlen(filename);
+	}
 	ulver_object *ret = NULL;
         while(uf) {
 		ret = ulver_eval(env, uf);
@@ -1088,6 +1012,9 @@ uint64_t ulver_destroy(ulver_env *env) {
 			ulver_form_destroy(env, root);
 			root = next;
 		}
+		if (source->filename) {
+			env->free(env, source->filename, source->filename_len+1);
+		}
 		env->free(env, source->str, source->len+1);
 		env->free(env, source, sizeof(ulver_source));
 		source = next;
@@ -1101,44 +1028,6 @@ uint64_t ulver_destroy(ulver_env *env) {
 
 	// return the leaked memory (MUST BE 0 !!!)
 	return mem;
-}
-
-void ulver_report_error(ulver_env *env) {
-	ulver_thread *ut = ulver_current_thread(env);
-	if (ut->current_coro->error) {
-		fprintf(env->_stderr, "\n*** ERROR: %.*s ***\n", (int) ut->current_coro->error_len, ut->current_coro->error);
-                // clear error
-                ulver_error(env, NULL);
-	}
-}
-
-ulver_thread *ulver_current_thread(ulver_env *env) {
-	ulver_thread *ut = (ulver_thread *) uv_key_get(&env->thread);
-	if (ut) return ut;
-	ut = env->alloc(env, sizeof(ulver_thread));
-        uv_key_set(&env->thread, (void *) ut);
-
-	ut->env = env;
-	ut->t = (uv_thread_t) uv_thread_self();
-
-	ut->main_coro = env->alloc(env, sizeof(ulver_coro));
-	ut->main_coro->thread = ut;
-	ut->main_coro->context = ulver_coro_alloc_context(env);
-
-	ut->current_coro = ut->main_coro;
-
-        ulver_stack_push(env, ut, ut->current_coro);
-
-	uv_rwlock_wrlock(&env->threads_lock);
-        ulver_thread *head = env->threads;
-        if (head) head->prev = ut;
-        env->threads = ut;
-        ut->next = head;
-        uv_rwlock_wrunlock(&env->threads_lock);
-
-	uv_rwlock_rdlock(&env->gc_lock);
-
-        return ut;
 }
 
 ulver_env *ulver_init() {
@@ -1156,6 +1045,9 @@ ulver_env *ulver_init() {
 
 	env->_stdout = stdout;
 	env->_stderr = stderr;
+
+	// fill the errors table
+	ulver_err_table_fill(env);
 
 	uv_mutex_init(&env->mem_lock);
 	uv_mutex_init(&env->sources_lock);

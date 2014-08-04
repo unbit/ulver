@@ -11,7 +11,7 @@ static void coro_eval(ulver_coro *coro) {
 }
 
 ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
-        if (!argv || !argv->next) return ulver_error(env, "make-coro requires two arguments");
+        if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
         // ensure the hub is running ...
         ulver_thread *ut = ulver_current_thread(env);
 
@@ -55,22 +55,22 @@ ulver_object *ulver_fun_make_coro(ulver_env *env, ulver_form *argv) {
 
 
 ulver_object *ulver_fun_coro_switch(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "coro-switch requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_object *coro = ulver_eval(env, argv);
         if (!coro) return NULL;
-        if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-switch expects a coro");
+        if (coro->type != ULVER_CORO) return ulver_error(env, ULVER_ERR_NOT_CORO);
 	// check for cross-thread violation
 	ulver_thread *ut = ulver_current_thread(env);
 	if (ut != coro->coro->thread) {
-                return ulver_error(env, "coro cross-thread violation !");
+                return ulver_error(env, ULVER_ERR_CROSS_THREAD);
 	}
         // if the coro is dead, raise an error
         if (coro->coro->dead) {
-                return ulver_error(env, "coro is dead !");
+                return ulver_error(env, ULVER_ERR_CORO_DEAD);
         }
         // if the coro is blocked, raise an error
         if (coro->coro->blocked) {
-                return ulver_error(env, "coro is blocked !");
+                return ulver_error(env, ULVER_ERR_CORO_BLOCKED);
         }
         // otherwise switch to it and get back the value
         ulver_hub_schedule_coro(env, coro->coro);
@@ -88,29 +88,29 @@ ulver_object *ulver_fun_coro_yield(ulver_env *env, ulver_form *argv) {
 }
 
 ulver_object *ulver_fun_coro_next(ulver_env *env, ulver_form *argv) {
-        if (!argv) return ulver_error(env, "coro-next requires an argument");
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_object *coro = ulver_eval(env, argv);
         if (!coro) return NULL;
-        if (coro->type != ULVER_CORO) return ulver_error_form(env, argv, "coro-next expects a coro");
+        if (coro->type != ULVER_CORO) return ulver_error(env, ULVER_ERR_NOT_CORO);
 	// check for cross-thread violation
 	ulver_thread *ut = ulver_current_thread(env);
 	if (ut != coro->coro->thread) {
-                return ulver_error(env, "coro cross-thread violation !");
+                return ulver_error(env, ULVER_ERR_CROSS_THREAD);
 	}
         // if the coro is dead, raise an error
         if (coro->coro->dead) {
-                return ulver_error(env, "coro is dead !");
+                return ulver_error(env, ULVER_ERR_CORO_DEAD);
         }
         // if the coro is blocked, raise an error
         if (coro->coro->blocked) {
-                return ulver_error(env, "coro is blocked !");
+                return ulver_error(env, ULVER_ERR_CORO_BLOCKED);
         }
         // otherwise switch to it and get back the value
         ulver_hub_schedule_coro(env, coro->coro);
         if (coro->coro->ret && coro->coro->ret->type == ULVER_CORO_DEAD) {
-                return ulver_error(env, "coro is dead !");
+                return ulver_error(env, ULVER_ERR_CORO_DEAD);
         }
-        // the oro coould be now blocked, so let's wait for it
+        // the coro coould be now blocked, so let's wait for it
         if (coro->coro->blocked) {
                 ulver_hub_wait(env, coro->coro);
         }

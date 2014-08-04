@@ -29,6 +29,43 @@
 #define ULVER_HASHTABLE 14
 #define ULVER_TRUE 255
 
+#define ULVER_ERR_NOERROR	0
+#define ULVER_ERR_ONE_ARG	1
+#define ULVER_ERR_TWO_ARG	2
+#define ULVER_ERR_THREE_ARG	3
+#define ULVER_ERR_NOT_NUM	4
+#define ULVER_ERR_NOT_FLOAT	5
+#define ULVER_ERR_NOT_STRING	6
+#define ULVER_ERR_NOT_KEYWORD	7
+#define ULVER_ERR_NOT_NUMFLOAT	8
+#define ULVER_ERR_FPE		9
+#define ULVER_ERR_PKG_NOTFOUND	10
+#define ULVER_ERR_PKG		11
+#define ULVER_ERR_THREAD	12
+#define ULVER_ERR_NOT_THREAD	13
+#define ULVER_ERR_NOT_CORO	14
+#define ULVER_ERR_NOT_STREAM	15
+#define ULVER_ERR_ZERO		16
+#define ULVER_ERR_NOT_SEQ	17
+#define ULVER_ERR_RANGE		18
+#define ULVER_ERR_NOT_LIST	19
+#define ULVER_ERR_ODD		20
+#define ULVER_ERR_NOT_SYMBOL	21
+#define ULVER_ERR_PARSE		22
+#define ULVER_ERR_NOT_FUNC	23
+#define ULVER_ERR_UNK_FUNC	24
+#define ULVER_ERR_NOT_FORM	25
+#define ULVER_ERR_IO		26
+#define ULVER_ERR_NOT_KEYSTRING	27
+#define ULVER_ERR_LAMBDA	28
+#define ULVER_ERR_CROSS_THREAD	29
+#define ULVER_ERR_CORO_DEAD	30
+#define ULVER_ERR_CORO_BLOCKED	31
+#define ULVER_ERR_UNBOUND	32
+#define ULVER_ERR_NOT_HASHTABLE	33
+#define ULVER_ERR_FOUR_ARG	34
+#define ULVER_ERR_CUSTOM	255
+
 typedef struct ulver_env ulver_env;
 typedef struct ulver_object ulver_object;
 typedef struct ulver_object_item ulver_object_item;
@@ -41,12 +78,15 @@ typedef struct ulver_thread ulver_thread;
 typedef struct ulver_coro ulver_coro;
 typedef struct ulver_scheduled_coro ulver_scheduled_coro;
 typedef struct ulver_uv_stream ulver_uv_stream;
+typedef struct ulver_err ulver_err;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
 	ulver_symbolmap *locals;
 	ulver_object *objects;
 	ulver_object *ret;
+        ulver_object *caller;
+	ulver_form *argv;
 };
 
 struct ulver_source {
@@ -65,6 +105,9 @@ struct ulver_source {
 	uint8_t is_escaped;
 	uint8_t is_comment;
 	uint8_t requires_decoding;
+	// could be NULL
+	char *filename;
+	uint64_t filename_len;
 };
 
 struct ulver_scheduled_coro {
@@ -78,10 +121,6 @@ struct ulver_coro {
 	ulver_coro *prev;
 	ulver_coro *next;
 	ulver_stackframe *stack;
-        ulver_object *caller;
-	char *error;
-	uint64_t error_len;
-	uint64_t error_buf_len;
 	uint8_t trigger_gc;
 	uint8_t dead;
 	ulver_object *ret;
@@ -109,6 +148,20 @@ struct ulver_thread {
 	ulver_scheduled_coro *scheduled_coros_tail;
 	ulver_env *env;
 	ulver_coro *hub_creator;
+
+	// error condition
+	uint8_t err_code;
+	char *error;
+	uint64_t error_len;
+	ulver_form *error_form;
+};
+
+struct ulver_err {
+	char *string;
+	uint64_t string_len;
+	uint8_t fatal;
+	uint8_t to_nil;
+	uint8_t _errno;
 };
 
 struct ulver_env {
@@ -117,6 +170,8 @@ struct ulver_env {
 
 	void *(*alloc)(ulver_env *, uint64_t);
 	void (*free)(ulver_env *, void *, uint64_t);
+
+	ulver_err err_table[256];
 
 	FILE *_stdout;
 	FILE *_stderr;
@@ -238,6 +293,7 @@ struct ulver_form {
 	uint64_t line;
 	uint64_t line_pos;
 	uint64_t need_free;
+	ulver_source *source;
 };
 
 struct ulver_symbolmap {
@@ -295,8 +351,8 @@ void ulver_object_destroy(ulver_env *, ulver_object *);
 int ulver_symbolmap_delete(ulver_env *, ulver_symbolmap *, char *, uint64_t, uint8_t);
 int ulver_symbol_delete(ulver_env *, char *, uint64_t);
 
-ulver_object *ulver_error(ulver_env *, char *, ...);
-ulver_object *ulver_error_form(ulver_env *, ulver_form *, char *);
+ulver_object *ulver_error_form(ulver_env *, uint8_t, ulver_form *, char *);
+ulver_object *ulver_error(ulver_env *, uint8_t);
 
 ulver_form *ulver_parse(ulver_env *, char *, size_t);
 
@@ -345,3 +401,4 @@ void ulver_hub_schedule_waiters(ulver_env *, ulver_thread *ut, ulver_coro *);
 void ulver_hub_destroy(ulver_env *, ulver_thread *);
 
 ulver_object *ulver_call0(ulver_env *, ulver_object *);
+void ulver_err_table_fill(ulver_env *);

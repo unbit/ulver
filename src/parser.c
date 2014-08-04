@@ -3,6 +3,7 @@
 ulver_form *ulver_form_new(ulver_env *env, ulver_source *us, uint8_t type) {
         ulver_form *uf = env->alloc(env, sizeof(ulver_form));
         uf->type = type;
+	uf->source = us;
         uf->parent = us->form_list_current;
 	uf->line = us->lines;
 	uf->line_pos = us->line_pos;
@@ -243,7 +244,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 
 	// incomplete ?
 	if (source->form_list_current != source->form_root) {
-		printf("[ERROR] parsing error\n");
+		ulver_error(env, ULVER_ERR_PARSE);
 		return NULL;
 	}
 

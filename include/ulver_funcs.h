@@ -12,6 +12,9 @@ ulver_object *ulver_fun_eighth(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_ninth(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_tenth(ulver_env *, ulver_form *);
 
+ulver_object *ulver_fun_find(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_position(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_subseq(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_read_from_string(ulver_env *, ulver_form *);

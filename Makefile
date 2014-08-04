@@ -1,4 +1,4 @@
-OBJECTS=src/memory.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src/funcs_math.o src/funcs_seq.o src/funcs_string.o src/funcs_hashtable.o src/funcs_io.o src/funcs_coro.o src/coro.o src/hub.o src/libulver.o
+OBJECTS=src/memory.o src/error.o src/parser.o src/stack.o src/utils.o src/funcs_thread.o src/funcs_math.o src/funcs_seq.o src/funcs_string.o src/funcs_hashtable.o src/funcs_io.o src/funcs_coro.o src/coro.o src/hub.o src/libulver.o
 ifeq ($(OS), Windows_NT)
 	LDFLAGS=
 	LIBS=-luv -ladvapi32 -liphlpapi -lpsapi -lshell32 -lws2_32
