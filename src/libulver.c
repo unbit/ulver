@@ -987,6 +987,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 	ulver_thread *threads = env->threads;
 	while(threads) {
 		threads->dead = 1;
+		threads->used = 0;
 		threads = threads->next;
 	}
 

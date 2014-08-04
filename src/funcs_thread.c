@@ -30,6 +30,9 @@ void run_new_thread(void *arg) {
         ulver_thread *ut = ulver_current_thread(env);
         ut->t = (uv_thread_t) uv_thread_self();
 
+	// mark the thread as used
+	ut->used = 1;
+
         // wake up the spinning creator thread
         to->thread = ut;
 
@@ -84,6 +87,10 @@ ulver_object *ulver_fun_join_thread(ulver_env *env, ulver_form *argv) {
 		ulver_thread *ut = ulver_current_thread(env);
 		// first clear the current error (useless, very probably)
 		ulver_error(env, ULVER_ERR_NOERROR);
+		ut->err_code = uo->thread->err_code;	
+		ut->error_form = uo->thread->error_form;	
+		ut->error = uo->thread->error;	
+		ut->error_len = uo->thread->error_len;	
 	}
         return uo->ret;
 }

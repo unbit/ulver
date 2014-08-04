@@ -149,6 +149,9 @@ struct ulver_thread {
 	ulver_env *env;
 	ulver_coro *hub_creator;
 
+	// until it is 1, the thread cannot die
+	uint8_t used;
+
 	// error condition
 	uint8_t err_code;
 	char *error;

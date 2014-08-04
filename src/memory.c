@@ -114,6 +114,7 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 
         if (uo->thread) {
 		// threads are destroyed independently
+		uo->thread->used = 0;
         }
 
         // free items
@@ -223,7 +224,8 @@ void ulver_gc(ulver_env *env) {
         ulver_thread *threads = env->threads;
         while(threads) {
                 ulver_thread *next = threads->next;
-                if (threads->dead) {
+		// threads cannot die until an object maps to them
+                if (threads->dead && !threads->used) {
                         // TODO what happens if it fails ?
                         uv_thread_join(&threads->t);
                         ulver_thread_destroy(env, threads);

@@ -307,4 +307,6 @@ void tests() {
 
 	test_error("(+ 1 :foo)", ULVER_ERR_NOT_NUMFLOAT);
 
+	test_error("(join-thread (make-thread (mod 1 0)))", ULVER_ERR_FPE);
+
 }
