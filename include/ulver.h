@@ -64,6 +64,7 @@
 #define ULVER_ERR_UNBOUND	32
 #define ULVER_ERR_NOT_HASHTABLE	33
 #define ULVER_ERR_FOUR_ARG	34
+#define ULVER_ERR_NEGATIVE	35
 #define ULVER_ERR_CUSTOM	255
 
 typedef struct ulver_env ulver_env;

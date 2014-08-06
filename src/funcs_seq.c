@@ -240,3 +240,48 @@ ulver_object *ulver_fun_position(ulver_env *env, ulver_form *argv) {
         return env->nil;
 }
 
+
+ulver_object *ulver_fun_last(ulver_env *env, ulver_form *argv) {
+	uint64_t last = 1;
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	ulver_object *src = ulver_eval(env, argv);
+	if (!src) return NULL;
+	if (src->type != ULVER_LIST) return ulver_error(env, ULVER_ERR_NOT_LIST);
+
+	if (argv->next) {
+		ulver_object *amount = ulver_eval(env, argv->next);
+		if (!amount) return NULL;
+		if (amount->type != ULVER_NUM) return ulver_error(env, ULVER_ERR_NOT_NUM);
+		if (amount->n < 0) return ulver_error(env, ULVER_ERR_NEGATIVE);
+		last = amount->n;
+	}
+	uint64_t list_len = ulver_utils_length(src);
+	uint64_t first_item = 0;
+	if (last <= list_len) {
+		first_item = list_len - last;
+	}
+	ulver_object *new_list = ulver_object_new(env, ULVER_LIST);
+	uint64_t i;
+	for(i=first_item;i<list_len;i++) {
+		ulver_object *item = ulver_utils_nth(src, i+1);		
+		if (!item) return ulver_error(env, ULVER_ERR_RANGE);
+		ulver_object_push(env, new_list, item);
+	}
+	return new_list;
+}
+
+ulver_object *ulver_fun_union(ulver_env *env, ulver_form *argv) {
+	ulver_object *new_list = ulver_object_new(env, ULVER_LIST);
+	while(argv) {
+		ulver_object *list = ulver_eval(env, argv);
+		if (!list) return NULL;
+		if (list->type != ULVER_LIST) return ulver_error(env, ULVER_ERR_NOT_LIST);
+		ulver_object_item *item = list->list;
+		while(item) {
+			ulver_object_push(env, new_list, ulver_object_copy(env, item->o));
+			item = item->next;
+		}
+		argv = argv->next;
+	}
+	return new_list;
+}

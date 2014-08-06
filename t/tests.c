@@ -309,4 +309,6 @@ void tests() {
 
 	test_error("(join-thread (make-thread (mod 1 0)))", ULVER_ERR_FPE);
 
+	test_num("(first (last (union (list 1 2 3) (list 4 5 6))))", 6);
+
 }

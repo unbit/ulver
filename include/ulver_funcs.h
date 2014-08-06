@@ -12,6 +12,9 @@ ulver_object *ulver_fun_eighth(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_ninth(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_tenth(ulver_env *, ulver_form *);
 
+ulver_object *ulver_fun_last(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_union(ulver_env *, ulver_form *);
+
 ulver_object *ulver_fun_find(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_position(ulver_env *, ulver_form *);
 
@@ -58,3 +61,6 @@ ulver_object *ulver_fun_coro_next(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_make_thread(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_join_thread(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_all_threads(ulver_env *, ulver_form *);
+
+ulver_object *ulver_fun_if(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_cond(ulver_env *, ulver_form *);

@@ -358,36 +358,6 @@ ulver_object *ulver_fun_list(ulver_env *env, ulver_form *argv) {
 	return list;
 }
 
-ulver_object *ulver_fun_if(ulver_env *env, ulver_form *argv) {
-	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
-	ulver_object *uo = ulver_eval(env, argv);
-	if (uo != env->nil) {
-		return ulver_eval(env, argv->next);
-	}
-	if (argv->next->next) {
-		return ulver_eval(env, argv->next->next);
-	}
-	else {
-		return env->nil;
-	}
-}
-
-ulver_object *ulver_fun_cond(ulver_env *env, ulver_form *argv) {
-	while(argv) {
-        	ulver_object *uo = ulver_eval(env, argv->list);
-        	if (uo != env->nil) {
-			if (argv->list->next) {
-                		return ulver_eval(env, argv->list->next);
-			}
-			else {
-				return uo;
-			}
-        	}
-		argv = argv->next;
-	}
-        return env->nil;
-}
-
 // TODO check for symbol
 ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
@@ -726,7 +696,7 @@ ulver_object *ulver_call0(ulver_env *env, ulver_object *func) {
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	if (!uf) return env->nil;
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, uf->value, uf->len, 0);
-	if (!func_symbol) return ulver_error(env, ULVER_ERR_UNK_FUNC);
+	if (!func_symbol) return ulver_error_form(env, ULVER_ERR_UNK_FUNC, uf, NULL);
 	ulver_object *func = func_symbol->value;
 	if (!func || func->type != ULVER_FUNC) return ulver_error(env, ULVER_ERR_NOT_FUNC);
 
@@ -1136,6 +1106,9 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "eighth", ulver_fun_eighth);
         ulver_register_fun(env, "ninth", ulver_fun_ninth);
         ulver_register_fun(env, "tenth", ulver_fun_tenth);
+
+        ulver_register_fun(env, "last", ulver_fun_last);
+        ulver_register_fun(env, "union", ulver_fun_union);
 
         ulver_register_fun(env, "quote", ulver_fun_quote);
         ulver_register_fun(env, "eval", ulver_fun_eval);
