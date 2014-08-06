@@ -24,6 +24,7 @@ ulver_object *ulver_fun_read_from_string(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_string_downcase(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_string_upcase(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_string_split(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_length(ulver_env *, ulver_form *);
 

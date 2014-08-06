@@ -311,4 +311,6 @@ void tests() {
 
 	test_num("(first (last (union (list 1 2 3) (list 4 5 6))))", 6);
 
+	test_string("(second (string-split (first (string-split \"a=b&f=c&pippo=pluto&s=hello\" \"&\")) \"=\"))", "b");
+
 }

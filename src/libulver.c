@@ -1157,6 +1157,7 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "string-downcase", ulver_fun_string_downcase);
         ulver_register_fun(env, "string-upcase", ulver_fun_string_upcase);
+        ulver_register_fun(env, "string-split", ulver_fun_string_split);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
 
