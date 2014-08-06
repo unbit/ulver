@@ -271,6 +271,9 @@ void ulver_gc(ulver_env *env) {
 			ulver_object_destroy(env, uo);	
 		}
 		else {
+			if (!env->globals) {
+				printf("object %p of type %d is still alive\n", uo, uo->type);
+			}
 			uo->gc_mark = 0;
 		}
 		uo = next;

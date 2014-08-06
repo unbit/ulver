@@ -28,12 +28,15 @@ void *ulver_coro_alloc_context(ulver_env *env) {
 }
 
 void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
-	if (coro->thread && coro != coro->thread->main_coro) {
+	if (!coro->thread || (coro->thread && coro != coro->thread->main_coro)) {
 		ulver_coro_context *ucc = (ulver_coro_context *) coro->context;
 #ifdef SPLITSTACK
 		__splitstack_releasecontext(ucc->ss_contexts);
 #else
 		munmap(ucc->stack - 4096, 32768 + 8192);
+		uv_mutex_lock(&env->mem_lock);
+        	env->mem -= 32768 + 8192;
+        	uv_mutex_unlock(&env->mem_lock);
 #endif
 	}
 	return env->free(env, coro->context, sizeof(ulver_coro_context));
@@ -57,6 +60,9 @@ ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
 	mprotect(stack - 4096, 4096, PROT_NONE);
 	mprotect(stack + 32768, 4096, PROT_NONE);
 	len = 32768;
+	uv_mutex_lock(&env->mem_lock);
+        env->mem += len + 8192;
+        uv_mutex_unlock(&env->mem_lock);
 #endif
         ucc->context.uc_link = 0;
         ucc->context.uc_stack.ss_sp = stack;
