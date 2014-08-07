@@ -1120,6 +1120,7 @@ ulver_env *ulver_init() {
 
         ulver_register_fun(env, "find", ulver_fun_find);
         ulver_register_fun(env, "position", ulver_fun_position);
+        ulver_register_fun(env, "elt", ulver_fun_elt);
 
         ulver_register_fun(env, "read-from-string", ulver_fun_read_from_string);
         ulver_register_fun(env, "subseq", ulver_fun_subseq);

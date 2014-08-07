@@ -17,6 +17,7 @@ ulver_object *ulver_fun_union(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_find(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_position(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_elt(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_subseq(ulver_env *, ulver_form *);
 

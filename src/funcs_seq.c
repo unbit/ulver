@@ -13,6 +13,30 @@ ulver_object *ulver_fun_length(ulver_env *env, ulver_form *argv) {
         return ulver_object_from_num(env, ulver_utils_length(sequence));
 }
 
+ulver_object *ulver_fun_elt(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
+
+        ulver_object *sequence = ulver_eval(env, argv);
+        if (!sequence) return NULL;
+
+        if (sequence->type != ULVER_LIST && sequence->type != ULVER_STRING) {
+                return ulver_error(env, ULVER_ERR_NOT_SEQ);
+        }
+
+        ulver_object *index = ulver_eval(env, argv->next);
+        if (!index) return NULL;
+        if (index->type != ULVER_NUM) return ulver_error(env, ULVER_ERR_NOT_NUM);
+        if (index->n < 0) return ulver_error(env, ULVER_ERR_ZERO);
+
+	uint64_t sequence_len = ulver_utils_length(sequence);
+	if (index->n >= sequence_len) return ulver_error(env, ULVER_ERR_RANGE);
+
+	if (sequence->type == ULVER_STRING) {
+		return ulver_object_from_string(env, sequence->str + index->n, 1);
+	}
+
+	return ulver_utils_nth(sequence, index->n + 1);
+}
 
 ulver_object *ulver_fun_subseq(ulver_env *env, ulver_form *argv) {
         if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);

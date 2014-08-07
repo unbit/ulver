@@ -315,4 +315,6 @@ void tests() {
 
 	test_num("(1+ 2)", 3);
 
+	test_string("(elt \"foobar\" (1+ 2))", "b");
+
 }
