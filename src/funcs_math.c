@@ -170,3 +170,28 @@ ulver_object *ulver_fun_cos(ulver_env *env, ulver_form *argv) {
         return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
 }
 
+ulver_object *ulver_fun_1add(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type == ULVER_NUM) {
+                return ulver_object_from_num(env, uo->n + 1);
+        }
+        if (uo->type == ULVER_FLOAT) {
+                return ulver_object_from_float(env, uo->d + 1.0);
+        }
+        return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+}
+
+ulver_object *ulver_fun_1sub(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+        ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type == ULVER_NUM) {
+                return ulver_object_from_num(env, uo->n - 1);
+        }
+        if (uo->type == ULVER_FLOAT) {
+                return ulver_object_from_float(env, uo->d - 1.0);
+        }
+        return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+}

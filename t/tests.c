@@ -313,4 +313,6 @@ void tests() {
 
 	test_string("(second (string-split (first (string-split \"a=b&f=c&pippo=pluto&s=hello\" \"&\")) \"=\"))", "b");
 
+	test_num("(1+ 2)", 3);
+
 }
