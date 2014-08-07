@@ -68,3 +68,6 @@ ulver_object *ulver_fun_all_threads(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_if(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_cond(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_and(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_or(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_not(ulver_env *, ulver_form *);

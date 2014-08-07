@@ -317,4 +317,8 @@ void tests() {
 
 	test_string("(elt \"foobar\" (1+ 2))", "b");
 
+	test_nil("(not t)");
+	test_true("(not nil)");
+	test_nil("(not 234.3)");
+
 }

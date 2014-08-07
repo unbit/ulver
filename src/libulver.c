@@ -1079,8 +1079,13 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "setq", ulver_fun_setq);
         ulver_register_fun(env, "progn", ulver_fun_progn);
         ulver_register_fun(env, "read-line", ulver_fun_read_line);
+
         ulver_register_fun(env, "if", ulver_fun_if);
         ulver_register_fun(env, "cond", ulver_fun_cond);
+        ulver_register_fun(env, "and", ulver_fun_and);
+        ulver_register_fun(env, "or", ulver_fun_or);
+        ulver_register_fun(env, "not", ulver_fun_not);
+
         ulver_register_fun(env, "defun", ulver_fun_defun);
         ulver_register_fun(env, "list", ulver_fun_list);
         ulver_register_fun(env, "cons", ulver_fun_cons);
