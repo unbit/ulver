@@ -1073,6 +1073,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "cos", ulver_fun_cos);
         ulver_register_fun(env, "1+", ulver_fun_1add);
         ulver_register_fun(env, "1-", ulver_fun_1sub);
+        ulver_register_fun(env, "max", ulver_fun_max);
+        ulver_register_fun(env, "min", ulver_fun_min);
 
         ulver_register_fun(env, "print", ulver_fun_print);
         ulver_register_fun(env, "parse-integer", ulver_fun_parse_integer);

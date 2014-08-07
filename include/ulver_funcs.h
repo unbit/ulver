@@ -48,6 +48,8 @@ ulver_object *ulver_fun_sin(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_cos(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_1add(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_1sub(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_max(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_min(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_write_string(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_read_string(ulver_env *, ulver_form *);

@@ -195,3 +195,66 @@ ulver_object *ulver_fun_1sub(ulver_env *env, ulver_form *argv) {
         }
         return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
 }
+
+ulver_object *ulver_fun_max(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	ulver_object *uo = ulver_eval(env, argv);
+	if (!uo) return NULL;
+	if (uo->type != ULVER_NUM && uo->type != ULVER_FLOAT) return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+	double winner = uo->d;
+	if (uo->type == ULVER_NUM) winner = uo->n;
+	ulver_object *winner_o = uo;
+	argv = argv->next;
+	while(argv) {
+		uo = ulver_eval(env, argv);
+		if (!uo) return NULL;
+		if (uo->type != ULVER_NUM && uo->type != ULVER_FLOAT) return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+		if (uo->type == ULVER_NUM) {
+			if (uo->n > winner) {
+				winner = uo->n;
+				winner_o = uo;
+			}
+		}
+		// float ?
+		else {
+			if (uo->d > winner) {
+                                winner = uo->d;
+                                winner_o = uo;
+                        }
+		}
+		argv = argv->next;
+	}
+	return winner_o;
+}
+
+ulver_object *ulver_fun_min(ulver_env *env, ulver_form *argv) {
+        if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+        ulver_object *uo = ulver_eval(env, argv);
+        if (!uo) return NULL;
+        if (uo->type != ULVER_NUM && uo->type != ULVER_FLOAT) return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+        double winner = uo->d;
+        if (uo->type == ULVER_NUM) winner = uo->n;
+        ulver_object *winner_o = uo;
+        argv = argv->next;
+        while(argv) {
+                uo = ulver_eval(env, argv);
+                if (!uo) return NULL;
+                if (uo->type != ULVER_NUM && uo->type != ULVER_FLOAT) return ulver_error_form(env, ULVER_ERR_NOT_NUMFLOAT, argv, NULL);
+                if (uo->type == ULVER_NUM) {
+                        if (uo->n < winner) {
+                                winner = uo->n;
+                                winner_o = uo;
+                        }
+                }
+                // float ?
+                else {
+                        if (uo->d < winner) {
+                                winner = uo->d;
+                                winner_o = uo;
+                        }
+                }
+                argv = argv->next;
+        }
+        return winner_o;
+}
+

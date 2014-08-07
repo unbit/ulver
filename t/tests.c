@@ -321,4 +321,5 @@ void tests() {
 	test_true("(not nil)");
 	test_nil("(not 234.3)");
 
+	test_num("(min 2 (max 3 5 7) 1)", 1);
 }
