@@ -158,6 +158,7 @@ struct ulver_thread {
 	char *error;
 	uint64_t error_len;
 	ulver_form *error_form;
+	char *error_fun;
 };
 
 struct ulver_err {

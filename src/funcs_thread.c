@@ -89,6 +89,7 @@ ulver_object *ulver_fun_join_thread(ulver_env *env, ulver_form *argv) {
 		ulver_error(env, ULVER_ERR_NOERROR);
 		ut->err_code = uo->thread->err_code;	
 		ut->error_form = uo->thread->error_form;	
+		ut->error_fun = uo->thread->error_fun;	
 		ut->error = uo->thread->error;	
 		ut->error_len = uo->thread->error_len;	
 	}

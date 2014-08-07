@@ -45,6 +45,7 @@ ulver_object *ulver_error_form(ulver_env *env, uint8_t type, ulver_form *uf, cha
         ut->error = NULL;
         ut->error_len = 0;
 	ut->error_form = NULL;
+	ut->error_fun = NULL;
 
 	// could be a simple clean procedure ...
 	if (type == ULVER_ERR_NOERROR)
@@ -55,6 +56,10 @@ ulver_object *ulver_error_form(ulver_env *env, uint8_t type, ulver_form *uf, cha
 	}
 	else if (ut->current_coro->stack->argv) {
 		ut->error_form = ut->current_coro->stack->argv;
+	}
+
+	if (ut->current_coro->stack->caller) {
+		ut->error_fun = ut->current_coro->stack->caller->str;
 	}
 
 	ut->err_code = type;
@@ -77,11 +82,12 @@ void ulver_report_error(ulver_env *env) {
         ulver_thread *ut = ulver_current_thread(env);
         if (ut->error) {
 		if (ut->error_form) {
-                	fprintf(env->_stderr, "*** ERROR %d: [file: \"%s\" line: %llu pos: %llu] (%s%.*s%s): %.*s ***\n",
+                	fprintf(env->_stderr, "*** ERROR %d: [file: \"%s\" line: %llu pos: %llu fun: #'%s] (%s%.*s%s): %.*s ***\n",
 				ut->err_code,
 				ut->error_form->source->filename ? ut->error_form->source->filename : "-",
 				(unsigned long long) ut->error_form->line,	
 				(unsigned long long) ut->error_form->line_pos,	
+				ut->error_fun ? ut->error_fun : "",
 				ut->error_form->type == ULVER_STRING ? "\"" : "",
 				(int) ut->error_form->len,
 				ut->error_form->value,
