@@ -717,6 +717,29 @@ ulver_object *ulver_call0(ulver_env *env, ulver_object *func) {
 
 ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 	if (!uf) return env->nil;
+	// is it a remote call ?
+	char *at = memchr(uf->value, '@', uf->len);
+	if (at) {
+		printf("remote_call: %.*s -> %.*s\n", at - uf->value, uf->value, uf->len - (at - uf->value),  at+1);
+		// does the node exists ?
+		// symbolmap_get @server
+		// prepare the blob to send
+		ulver_msgpack *um = ulver_form_serialize(env, uf, NULL);
+		// connect to the node and switch to the hub
+		//uv_connect
+		// send the blob, switch to hub and free its memory
+		// uv_write
+        	env->free(env, um->base, um->len);
+        	env->free(env, um, sizeof(ulver_msgpack));	
+		// wait for the response (it will be an object)
+		// uv_read
+		// close the connection
+		// deserialize
+		//ulver_object *ret = ulver_object_deserialize();
+		// return
+		//return ret;
+		return NULL;
+	}
 	ulver_symbol *func_symbol = ulver_symbolmap_get(env, env->funcs, uf->value, uf->len, 0);
 	if (!func_symbol) return ulver_error_form(env, ULVER_ERR_UNK_FUNC, uf, NULL);
 	ulver_object *func = func_symbol->value;
@@ -1194,6 +1217,9 @@ ulver_env *ulver_init() {
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
         ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);
         ulver_register_package_fun(env, ulver_ns, "deserialize", ulver_fun_deserialize);
+
+        ulver_register_package_fun(env, ulver_ns, "cluster", ulver_fun_cluster);
+        ulver_register_package_fun(env, ulver_ns, "defnode", ulver_fun_defnode);
 
         return env;
 }

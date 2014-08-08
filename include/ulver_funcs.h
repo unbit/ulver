@@ -73,3 +73,6 @@ ulver_object *ulver_fun_cond(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_and(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_or(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_not(ulver_env *, ulver_form *);
+
+ulver_object *ulver_fun_cluster(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_defnode(ulver_env *, ulver_form *);
