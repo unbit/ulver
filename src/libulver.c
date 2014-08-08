@@ -2,8 +2,24 @@
 
 ulver_object *ulver_fun_serialize(ulver_env *env, ulver_form *argv) {
 	ulver_msgpack *um = ulver_form_serialize(env, argv, NULL);
-	printf("len = %d pos = %d\n", um->len, um->pos);
-	return env->nil;
+	ulver_object *us = ulver_object_from_string(env, um->base, um->pos);
+	env->free(env, um->base, um->len);
+	env->free(env, um, sizeof(ulver_msgpack));
+	return us;
+}
+
+ulver_object *ulver_fun_deserialize(ulver_env *env, ulver_form *argv) {
+	if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
+	ulver_object *msgpack = ulver_eval(env, argv);
+	if (!msgpack) return NULL;
+	if (msgpack->type != ULVER_STRING) return ulver_error(env, ULVER_ERR_NOT_STRING);
+	char *str = msgpack->str;
+	uint64_t len = msgpack->len;
+	ulver_form *uf = ulver_form_deserialize(env, NULL, &str, &len);
+	if (!uf) return NULL;
+	ulver_object *uo = ulver_object_new(env, ULVER_FORM);
+	uo->form = uf;
+	return uo;
 }
 
 ulver_object *ulver_fun_return(ulver_env *env, ulver_form *argv) {
@@ -1177,6 +1193,7 @@ ulver_env *ulver_init() {
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
         ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);
+        ulver_register_package_fun(env, ulver_ns, "deserialize", ulver_fun_deserialize);
 
         return env;
 }

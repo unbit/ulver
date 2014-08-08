@@ -117,6 +117,13 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
 		uo->thread->used = 0;
         }
 
+	// if the object is a form without source, let's destroy it
+	if (uo->form) {
+		if (!uo->form->source) {
+			ulver_form_destroy(env, uo->form);
+		}	
+	}
+
         // free items
         ulver_object_item *item = uo->list;
         while(item) {

@@ -47,6 +47,7 @@ static void msgpack_string(ulver_msgpack *um, char *str, uint64_t len) {
 	}
 
 	memcpy(um->buf, str, len);
+	um->buf+=len;
 	um->pos+=len;
 }
 
@@ -206,6 +207,55 @@ ulver_msgpack *ulver_form_serialize(ulver_env *env, ulver_form *uf, ulver_msgpac
 	return um;
 }
 
-ulver_form *ulver_form_deserialize(ulver_env *env, char *buf, uint64_t len) {
+ulver_form *ulver_form_deserialize(ulver_env *env, ulver_form *parent, char **buf, uint64_t *len) {
+	if (*len == 0) return NULL;
+	uint8_t *ptr = (uint8_t *) *buf;
+
+	if (*ptr <= 127) {
+		ulver_form *uf = ulver_form_push_form(env, parent, ULVER_NUM);
+		uf->value = ulver_util_str2num(env, *ptr, &uf->len);
+		uf->need_free = 21;
+		*buf+=1;
+		*len-=1;
+		return uf;
+	}
+
+	// array ?
+	if (*ptr >= 0x90 && *ptr <= 0x9f) {
+		uint8_t count = *ptr & 0x0f;
+		uint8_t i;
+		ulver_form *array = ulver_form_push_form(env, parent, ULVER_LIST);
+		*buf+=1;
+		*len-=1;
+		if (*len < count) return NULL;
+		for(i=0;i<count;i++) {
+			if (*len > 0) {
+				ulver_form_deserialize(env, array, buf, len);
+				continue;
+			}
+			return NULL;
+		}
+		return array;
+	}
+
+	// string ? (symbol or keyword)
+	if (*ptr >= 0xa0 && *ptr <= 0xbf) {
+		ulver_form *str = ulver_form_push_form(env, parent, ULVER_SYMBOL);
+		uint8_t count = *ptr & 0x1f;
+		*buf+=1;
+                *len-=1;
+		// is it a keyword ?
+		if (count > 0 && **buf == ':') {
+			str->type = ULVER_KEYWORD;
+		}
+		if (*len < count) return NULL;
+		str->value = ulver_utils_strndup(env, *buf, count);
+		str->len = count;
+		str->need_free = count+1;
+		*buf += count;
+		*len -= count;
+		return str;
+	}
+
 	return NULL;
 }

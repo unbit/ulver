@@ -420,3 +420,7 @@ void ulver_err_table_fill(ulver_env *);
 uint8_t ulver_error_code(ulver_env *);
 
 ulver_msgpack *ulver_form_serialize(ulver_env *, ulver_form *, ulver_msgpack *);
+ulver_form *ulver_form_deserialize(ulver_env *, ulver_form *, char **, uint64_t *);
+ulver_form *ulver_form_push_form(ulver_env *, ulver_form *, uint8_t);
+
+char *ulver_util_str2num(ulver_env *env, int64_t, uint64_t *);

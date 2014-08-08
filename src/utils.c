@@ -101,8 +101,8 @@ int ulver_utils_memicmp(char *s0, char *s1, uint64_t len) {
 int ulver_utils_is_a_number(char *s, uint64_t len) {
 	uint64_t i;
 	// check the first char
-	if (s[0] == '+') goto check;
-	if (s[0] == '-') goto check;
+	if (s[0] == '+' && len > 1) goto check;
+	if (s[0] == '-' && len > 1) goto check;
 	if (s[0] < '0' || s[0] > '9') return 0;
 check:
         for(i=1;i<len;i++) {
@@ -117,9 +117,9 @@ int ulver_utils_is_a_float(char *s, uint64_t len) {
 	uint8_t has_dot = 0;
 	uint64_t i;
         // check the first char
-        if (s[0] == '+') goto check;
-        if (s[0] == '-') goto check;
-        if (s[0] == '.') {
+        if (s[0] == '+' && len > 1) goto check;
+        if (s[0] == '-' && len > 1) goto check;
+        if (s[0] == '.' && len > 1) {
 		has_dot = 1;
 		goto check;
 	}
@@ -247,4 +247,11 @@ char *ulver_utils_is_library(ulver_env *env, char *filename) {
 	memcpy(entry_point, name, name_len);
 	memcpy(entry_point + name_len, "_init\0", 6);
 	return entry_point;
+}
+
+char *ulver_util_str2num(ulver_env *env, int64_t n, uint64_t *len) {
+	// 21 bytes are enough for every 64bit num
+	char *out = env->alloc(env, 21);
+	snprintf(out, 21, "%lld", n);
+	return out;
 }

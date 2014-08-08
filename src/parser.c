@@ -4,11 +4,13 @@ ulver_form *ulver_form_new(ulver_env *env, ulver_source *us, uint8_t type) {
         ulver_form *uf = env->alloc(env, sizeof(ulver_form));
         uf->type = type;
 	uf->source = us;
-        uf->parent = us->form_list_current;
-	uf->line = us->lines;
-	uf->line_pos = us->line_pos;
-	if (!us->form_new) {
-		us->form_new = uf;
+	if (us) {
+        	uf->parent = us->form_list_current;
+		uf->line = us->lines;
+		uf->line_pos = us->line_pos;
+		if (!us->form_new) {
+			us->form_new = uf;
+		}
 	}
 	return uf; 
 }
@@ -32,6 +34,29 @@ ulver_form *ulver_form_push(ulver_env *env, ulver_source *us, uint8_t type) {
 
 	return NULL;
 }
+
+ulver_form *ulver_form_push_form(ulver_env *env, ulver_form *parent, uint8_t type) {
+        ulver_form *uf = ulver_form_new(env, NULL, type);
+	uf->parent = parent;
+
+	if (!parent) return uf;
+        if (!parent->list) {
+               	parent->list = uf;
+               	return uf;
+        }
+
+        ulver_form *next = parent->list;
+        while(next) {
+                if (!next->next) {
+                        next->next = uf;
+                        return uf;
+                }
+                next = next->next;
+        }
+
+        return NULL;
+}
+
 
 void ulver_form_destroy(ulver_env *env, ulver_form *uf) {
 	ulver_form *list = uf->list;

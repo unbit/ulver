@@ -84,7 +84,7 @@ void ulver_report_error(ulver_env *env) {
 		if (ut->error_form) {
                 	fprintf(env->_stderr, "*** ERROR %d: [file: \"%s\" line: %llu pos: %llu fun: #'%s] (%s%.*s%s): %.*s ***\n",
 				ut->err_code,
-				ut->error_form->source->filename ? ut->error_form->source->filename : "-",
+				(ut->error_form->source && ut->error_form->source->filename) ? ut->error_form->source->filename : "-",
 				(unsigned long long) ut->error_form->line,	
 				(unsigned long long) ut->error_form->line_pos,	
 				ut->error_fun ? ut->error_fun : "",

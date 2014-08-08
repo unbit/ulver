@@ -322,4 +322,6 @@ void tests() {
 	test_nil("(not 234.3)");
 
 	test_num("(min 2 (max 3 5 7) 1)", 1);
+
+	test_num("(eval (ulver:deserialize (ulver:serialize (+ 2 2 (* 2 2) (- 2 1)))))", 9);
 }
