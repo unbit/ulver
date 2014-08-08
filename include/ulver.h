@@ -80,6 +80,7 @@ typedef struct ulver_coro ulver_coro;
 typedef struct ulver_scheduled_coro ulver_scheduled_coro;
 typedef struct ulver_uv_stream ulver_uv_stream;
 typedef struct ulver_err ulver_err;
+typedef struct ulver_msgpack ulver_msgpack;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -317,6 +318,15 @@ struct ulver_symbol {
 	ulver_object *key;
 };
 
+// serialize/deserialize objects and forms
+struct ulver_msgpack {
+	ulver_env *env;
+	char *base;
+	char *buf;
+	uint64_t pos;
+	uint64_t len;
+};
+
 void ulver_utils_print_list(ulver_env *, ulver_object *);
 void ulver_utils_tolower(char *, uint64_t);
 void ulver_utils_toupper(char *, uint64_t);
@@ -408,3 +418,5 @@ void ulver_hub_destroy(ulver_env *, ulver_thread *);
 ulver_object *ulver_call0(ulver_env *, ulver_object *);
 void ulver_err_table_fill(ulver_env *);
 uint8_t ulver_error_code(ulver_env *);
+
+ulver_msgpack *ulver_form_serialize(ulver_env *, ulver_form *, ulver_msgpack *);

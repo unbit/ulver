@@ -1,5 +1,11 @@
 #include <ulver_funcs.h>
 
+ulver_object *ulver_fun_serialize(ulver_env *env, ulver_form *argv) {
+	ulver_msgpack *um = ulver_form_serialize(env, argv, NULL);
+	printf("len = %d pos = %d\n", um->len, um->pos);
+	return env->nil;
+}
+
 ulver_object *ulver_fun_return(ulver_env *env, ulver_form *argv) {
 	if (argv) {
 		ulver_object *ret = ulver_eval(env, argv);
@@ -1170,6 +1176,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "string-split", ulver_fun_string_split);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
+        ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);
 
         return env;
 }
