@@ -76,6 +76,7 @@ static void msgpack_bin(ulver_msgpack *um, char *str, uint64_t len) {
         }
 
         memcpy(um->buf, str, len);
+	um->buf+=len;
         um->pos+=len;
 }
 
@@ -257,5 +258,33 @@ ulver_form *ulver_form_deserialize(ulver_env *env, ulver_form *parent, char **bu
 		return str;
 	}
 
-	return NULL;
+	*buf+=1;
+        *len-=1;
+	ulver_form *uf = NULL;
+
+	if (*len == 0) return NULL;
+
+	uint8_t h = *ptr;
+	ptr+=1;
+
+	switch(h) {
+		// bin8
+		case 0xC4:
+			uf = ulver_form_push_form(env, parent, ULVER_STRING);	
+			uint8_t count = *ptr;		
+			*buf+=1;
+        		*len-=1;	
+			if (*len < count) return NULL;
+			uf->value = ulver_utils_strndup(env, *buf, count);
+                	uf->len = count;
+                	uf->need_free = count+1;
+                	*buf += count;
+                	*len -= count;
+			break;
+		default:
+			printf("unknown msgpack code %x\n", h);
+			break;
+	}
+
+	return uf;
 }
