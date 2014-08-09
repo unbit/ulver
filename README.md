@@ -4,7 +4,7 @@ ulver
 Unbit Lisp Version
 
 This is a modern (and incomplete) implementation of a Simplified Common LISP dialect interpreter, with threads (without GIL),
-coroutines, full non-blocking i/o (via libuv) and mark-and-sweep gc
+coroutines, full non-blocking i/o (via libuv), transparent clustering and mark-and-sweep gc
 
 It is built to be easily extended and for being embedded in C/C++ applications
 
