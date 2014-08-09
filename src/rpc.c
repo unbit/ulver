@@ -87,6 +87,7 @@ static void rpc_client(ulver_coro *tcp_coro) {
 }
 
 static void rpc_server_on_connect(uv_stream_t* handle, int status) {
+	printf("CONNECTION !!!\n");
         ulver_rpc_server *urs = (ulver_rpc_server *) handle->data;
         ulver_coro_switch(urs->env, urs->coro);
 }
@@ -98,10 +99,12 @@ static void rpc_server(ulver_coro *rpc_coro) {
 
 	// start waiting for connections
         uv_listen(&urs->tcp, 128, rpc_server_on_connect);
+	printf("ready to switch %p\n", rpc_coro);
         ulver_coro_switch(env, ut->hub);
 
         // here we create a new coro for each connection
         for(;;) {
+		printf("new connection !!!\n");
                 ulver_rpc_client *client = env->alloc(env, sizeof(ulver_rpc_client));
 		client->server = urs;
                 uv_tcp_init(ut->hub_loop, &client->handle);
@@ -153,14 +156,19 @@ ulver_object *ulver_fun_cluster(ulver_env *env, ulver_form *argv) {
 
 	ulver_rpc_server *urs = env->alloc(env, sizeof(ulver_rpc_server));
 
+	urs->env = env;
+
 	uv_tcp_init(ut->hub_loop, &urs->tcp);
+	// map urs to handle
+	urs->tcp.data = urs;
+
         uv_ip4_addr(addr->str, port->n, &urs->address);
         uv_tcp_bind(&urs->tcp, (struct sockaddr *)&urs->address, 0);
 
         // generate the new coro
         ulver_coro *coro = ulver_coro_new(env, rpc_server, urs);
 
-        // map the coro to utcp
+        // map the coro to urs
         urs->coro = coro;
 
         // add the new coro
