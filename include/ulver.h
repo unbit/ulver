@@ -424,3 +424,5 @@ ulver_form *ulver_form_deserialize(ulver_env *, ulver_form *, char **, uint64_t 
 ulver_form *ulver_form_push_form(ulver_env *, ulver_form *, uint8_t);
 
 char *ulver_util_str2num(ulver_env *env, int64_t, uint64_t *);
+
+ulver_msgpack *ulver_object_serialize(ulver_env *, ulver_object *, ulver_msgpack *);

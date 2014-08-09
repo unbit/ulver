@@ -73,12 +73,13 @@ ulver_object *ulver_fun_subseq(ulver_env *env, ulver_form *argv) {
                 }
         }
 
+
         if (index->n > sequence_len) return ulver_error(env, ULVER_ERR_RANGE);
         if (end_index > sequence_len) return ulver_error(env, ULVER_ERR_RANGE);
 
         // is it a string ?
         if (sequence->type == ULVER_STRING) {
-                return ulver_object_from_string(env, sequence->str + index->n, end_index - index->n);
+                return ulver_object_from_string(env, sequence->str + index->n, end_index);
         }
 
         // is it a list ?

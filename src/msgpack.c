@@ -208,6 +208,38 @@ ulver_msgpack *ulver_form_serialize(ulver_env *env, ulver_form *uf, ulver_msgpac
 	return um;
 }
 
+ulver_msgpack *ulver_object_serialize(ulver_env *env, ulver_object *uo, ulver_msgpack *um) {
+	if (!um) {
+                um = env->alloc(env, sizeof(ulver_msgpack));
+                um->len = 4096;
+                um->base = um->buf = env->alloc(env, um->len);
+        }
+
+        switch(uo->type) {
+                case ULVER_LIST:
+                        msgpack_array(um, uo->list);
+                        ulver_object_item *item = uo->list;
+                        while(item) {
+                                ulver_object_serialize(env, item->o, um);
+                                item = item->next;
+                        }
+                        break;
+                case ULVER_NUM:
+                        msgpack_num(um, uo->n);
+                        break;
+                case ULVER_FLOAT:
+                        break;
+                case ULVER_STRING:
+                        msgpack_bin(um, uo->str, uo->len);
+                        break;
+                default:
+                        printf("unserializable object\n");
+                        return um;
+        }
+
+        return um;
+}
+
 ulver_form *ulver_form_deserialize(ulver_env *env, ulver_form *parent, char **buf, uint64_t *len) {
 	if (*len == 0) return NULL;
 	uint8_t *ptr = (uint8_t *) *buf;

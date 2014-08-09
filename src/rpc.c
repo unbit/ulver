@@ -145,7 +145,7 @@ static void rpc_client(ulver_coro *rpc_coro) {
 	}
 
 	// serialize the response
-	// ulver_object_serialize(env, ret);
+	ulver_msgpack *um = ulver_object_serialize(env, ret, NULL );
 
 	// send it
 	//uv_write(...)
