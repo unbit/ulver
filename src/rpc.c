@@ -53,6 +53,7 @@ struct ulver_rpc_server {
 struct ulver_rpc_client {
 	ulver_rpc_server *server;	
 	uv_tcp_t handle;
+	uv_write_t writer;
 	ulver_coro *coro;
 	char *msgpack;
 	uint64_t msgpack_len;
@@ -74,7 +75,6 @@ static void rpc_reader_switch_cb(uv_stream_t* handle, ssize_t nread, const uv_bu
         ulver_rpc_client *urc = (ulver_rpc_client *) handle->data;
         ulver_env *env = urc->server->env;
 
-	printf("coro = %p\n", urc->coro);
         urc->coro->blocked = 0;
 
 	if (nread <= 0) {
@@ -95,8 +95,15 @@ static void rpc_reader_switch_cb(uv_stream_t* handle, ssize_t nread, const uv_bu
 		urc->msgpack = new_msgpack;
 		urc->msgpack_len += nread;
 	}
-	printf("coro = %p\n", urc->coro);
         ulver_coro_switch(env, urc->coro);
+}
+
+static void rpc_write_cb(uv_write_t* handle, int status) {
+        ulver_rpc_client *client = (ulver_rpc_client *) handle->data;
+        ulver_env *env = client->server->env;
+        client->coro->blocked = 0;
+        // back to coro
+        ulver_coro_switch(env, client->coro);
 }
 
 static void rpc_client(ulver_coro *rpc_coro) {
@@ -107,8 +114,6 @@ static void rpc_client(ulver_coro *rpc_coro) {
 
 	// start reading until 4 bytes + msgpack are ready
 
-	printf("reading headers\n");
-	
 	uv_read_start(&client->handle, rpc_reader_alloc, rpc_reader_switch_cb);
 
 	for(;;) {
@@ -148,7 +153,17 @@ static void rpc_client(ulver_coro *rpc_coro) {
 	ulver_msgpack *um = ulver_object_serialize(env, ret, NULL );
 
 	// send it
-	//uv_write(...)
+	uv_buf_t buf[2];
+	uint32_t pktlen = htonl(um->pos);
+	buf[0].base = &pktlen;
+	buf[0].len = 4;
+	buf[1].base = um->base;
+	buf[1].len = um->pos;
+	client->writer.data = client;
+	uv_write(&client->writer, &client->handle, &buf, 2, rpc_write_cb);
+	client->coro->blocked = 1;
+
+	ulver_coro_switch(env, ut->hub);
 
 	// finally close the connection
         uv_close(&client->handle, rpc_close);

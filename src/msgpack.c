@@ -138,12 +138,7 @@ static void msgpack_num(ulver_msgpack *um, int64_t num) {
         um->pos+= 9;
 }
 
-void msgpack_array(ulver_msgpack *um, ulver_form *item) {
-	uint64_t count = 0;
-	while(item) {
-		count++;
-		item = item->next;
-	}
+static void msgpack_array(ulver_msgpack *um, uint64_t count) {
 
 	if (count <= 15) {
 		msgpack_fix(um, 1);
@@ -170,6 +165,15 @@ void msgpack_array(ulver_msgpack *um, ulver_form *item) {
         um->pos += 5;
 }
 
+static uint64_t array_form(ulver_form *of) {
+        uint64_t count = 0;
+        while(of) {
+                count++;
+                of = of->next;
+        }
+        return count;
+}
+
 ulver_msgpack *ulver_form_serialize(ulver_env *env, ulver_form *uf, ulver_msgpack *um) {
 	if (!um) {
 		um = env->alloc(env, sizeof(ulver_msgpack));
@@ -179,7 +183,7 @@ ulver_msgpack *ulver_form_serialize(ulver_env *env, ulver_form *uf, ulver_msgpac
 
 	switch(uf->type) {
 		case ULVER_LIST:
-			msgpack_array(um, uf->list);
+			msgpack_array(um, array_form(uf->list));
 			ulver_form *item = uf->list;
 			while(item) {
 				ulver_form_serialize(env, item, um);
@@ -208,6 +212,15 @@ ulver_msgpack *ulver_form_serialize(ulver_env *env, ulver_form *uf, ulver_msgpac
 	return um;
 }
 
+static uint64_t array_object_item(ulver_object_item *oi) {
+	uint64_t count = 0;
+        while(oi) {
+                count++;
+                oi = oi->next;
+        }
+	return count;
+}
+
 ulver_msgpack *ulver_object_serialize(ulver_env *env, ulver_object *uo, ulver_msgpack *um) {
 	if (!um) {
                 um = env->alloc(env, sizeof(ulver_msgpack));
@@ -217,7 +230,7 @@ ulver_msgpack *ulver_object_serialize(ulver_env *env, ulver_object *uo, ulver_ms
 
         switch(uo->type) {
                 case ULVER_LIST:
-                        msgpack_array(um, uo->list);
+                        msgpack_array(um, array_object_item(uo->list));
                         ulver_object_item *item = uo->list;
                         while(item) {
                                 ulver_object_serialize(env, item->o, um);
