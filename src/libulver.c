@@ -1,5 +1,16 @@
 #include <ulver_funcs.h>
 
+ulver_object *ulver_fun_defparameter(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
+        if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
+	ulver_object *uo = ulver_eval(env, argv->next);
+	if (!uo) return NULL;
+	uv_rwlock_wrlock(&env->globals_lock);
+        ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 1);
+        uv_rwlock_wrunlock(&env->globals_lock);
+	return uo;
+}
+
 ulver_object *ulver_fun_serialize(ulver_env *env, ulver_form *argv) {
 	ulver_msgpack *um = ulver_form_serialize(env, argv, NULL);
 	ulver_object *us = ulver_object_from_string(env, um->base, um->pos);
@@ -1112,6 +1123,7 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "setq", ulver_fun_setq);
         ulver_register_fun(env, "progn", ulver_fun_progn);
         ulver_register_fun(env, "read-line", ulver_fun_read_line);
+        ulver_register_fun(env, "defparameter", ulver_fun_defparameter);
 
         ulver_register_fun(env, "if", ulver_fun_if);
         ulver_register_fun(env, "cond", ulver_fun_cond);
@@ -1199,6 +1211,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "string-downcase", ulver_fun_string_downcase);
         ulver_register_fun(env, "string-upcase", ulver_fun_string_upcase);
         ulver_register_fun(env, "string-split", ulver_fun_string_split);
+
+        ulver_register_fun(env, "get-universal-time", ulver_fun_get_universal_time);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
         ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);
