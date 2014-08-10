@@ -257,8 +257,8 @@ void tests() {
 	test_string("(subseq \"hello\" 1)", "ello");
 	test_string("(subseq \"hello\" 3)", "lo");
 	test_string("(subseq \"hello\" 0 0)", "");
-	test_string("(subseq \"hello\" 1 2)", "e");
-	test_string("(subseq \"hello\" 1 3)", "el");
+	test_string("(subseq \"hello\" 1 2)", "el");
+	test_string("(subseq \"hello\" 1 3)", "ell");
 
 	test_num("(third (subseq (list 1 2 3 4 5 6 7) 1 5))", 4);
 	test_num("(length (list 1 2 3 (third (subseq (list 1 2 3 4 5 6 7) 1 5))) )", 4);
