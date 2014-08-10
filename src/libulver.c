@@ -400,23 +400,28 @@ ulver_object *ulver_fun_let(ulver_env *env, ulver_form *argv) {
 ulver_object *ulver_fun_setq(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
 	if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
-	ulver_object *uo = ulver_eval(env, argv->next);
-	if (!uo) return NULL;
-	// first of all check if the local variable is already defined
-	ulver_thread *ut = ulver_current_thread(env);
-        ulver_stackframe *stack = ut->current_coro->stack;
-        while(stack) {
-                ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, argv->value, argv->len, 0);
-                if (us) {
-			us->value = uo;
-			return uo;
-		}
-                stack = stack->prev;
-        }
-	uv_rwlock_wrlock(&env->globals_lock);
-	ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 0);
-	uv_rwlock_wrunlock(&env->globals_lock);
-	if (!us) return NULL;
+
+	ulver_object *uo = NULL;
+	while(argv && argv->next) {
+		uo = ulver_eval(env, argv->next);
+		if (!uo) return NULL;
+		// first of all check if the local variable is already defined
+		ulver_thread *ut = ulver_current_thread(env);
+        	ulver_stackframe *stack = ut->current_coro->stack;
+        	while(stack) {
+                	ulver_symbol *us = ulver_symbolmap_get(env, stack->locals, argv->value, argv->len, 0);
+                	if (us) {
+				us->value = uo;
+				return uo;
+			}
+                	stack = stack->prev;
+        	}
+		uv_rwlock_wrlock(&env->globals_lock);
+		ulver_symbol *us = ulver_symbolmap_set(env, env->globals, argv->value, argv->len, uo, 0);
+		uv_rwlock_wrunlock(&env->globals_lock);
+		if (!us) return NULL;
+		argv = argv->next->next;
+	}
 	return uo;
 }
 
@@ -724,7 +729,7 @@ ulver_object *ulver_call(ulver_env *env, ulver_form *uf) {
 		// does the node exists ?
 		// symbolmap_get @server
 		// prepare the blob to send
-		ulver_msgpack *um = ulver_form_serialize(env, uf, NULL);
+		ulver_msgpack *um = ulver_form_serialize(env, uf->parent, NULL);
 		// connect to the node and switch to the hub
 		//uv_connect
 		// send the blob, switch to hub and free its memory

@@ -257,6 +257,7 @@ ulver_form *ulver_form_deserialize(ulver_env *env, ulver_form *parent, char **bu
 	if (*len == 0) return NULL;
 	uint8_t *ptr = (uint8_t *) *buf;
 
+	// tinynum ?
 	if (*ptr <= 127) {
 		ulver_form *uf = ulver_form_push_form(env, parent, ULVER_NUM);
 		uf->value = ulver_util_str2num(env, *ptr, &uf->len);
