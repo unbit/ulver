@@ -31,7 +31,7 @@ void run_new_thread(void *arg) {
         ut->t = (uv_thread_t) uv_thread_self();
 
 	// mark the thread as used
-	ut->used = 1;
+	ut->refs = 1;
 
         // wake up the spinning creator thread
         to->thread = ut;

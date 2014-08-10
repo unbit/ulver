@@ -545,25 +545,6 @@ ulver_object *ulver_fun_parse_integer(ulver_env *env, ulver_form *argv) {
         return ulver_object_from_num(env, strtoll(uo->str, NULL, 10));
 }
 
-ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
-	ulver_object *new = ulver_object_new(env, uo->type);
-	new->len = uo->len;
-        new->str = uo->str;
-        new->n = uo->n;
-        new->d = uo->d;
-	new->func = uo->func;
-	new->lambda_list = uo->lambda_list;
-	new->form = uo->form;
-	if (uo->list) {
-		ulver_object_item *item = uo->list;
-		while(item) {
-			ulver_object_push(env, new, ulver_object_copy(env, item->o));
-			item = item->next;
-		}
-	}
-	return new;
-}
-
 ulver_object *ulver_object_new(ulver_env *env, uint8_t type) {
 	// get the current thread;
 	ulver_object *uo = env->alloc(env, sizeof(ulver_object));
@@ -1007,7 +988,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 	ulver_thread *threads = env->threads;
 	while(threads) {
 		threads->dead = 1;
-		threads->used = 0;
+		threads->refs = 0;
 		threads = threads->next;
 	}
 

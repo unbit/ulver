@@ -77,6 +77,69 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
         env->free(env, ut, sizeof(ulver_thread));
 }
 
+static void object_clear(ulver_env *env, ulver_object *uo) {
+	if (uo->str) {
+                // strings memory area is zero-suffixed
+                env->free(env, uo->str, uo->len + 1);
+        }
+
+        if (uo->map) {
+                ulver_symbolmap_destroy(env, uo->map);
+        }
+
+        if (uo->stream) {
+                env->free(env, uo->stream, sizeof(ulver_uv_stream));
+        }
+
+        // if the coro get out of scope we can safely destroy it
+        if (uo->coro) {
+                destroy_coro(env, uo->coro);
+        }
+
+        if (uo->thread) {
+                // threads are destroyed independently
+                if (uo->thread->refs > 0) {
+                        uo->thread->refs--;
+                }
+        }
+
+        // if the object is a form without source, let's destroy it
+        if (uo->form) {
+                if (!uo->form->source) {
+                        ulver_form_destroy(env, uo->form);
+                }
+        }
+
+	// free items
+        ulver_object_item *item = uo->list;
+        while(item) {
+                ulver_object_item *next = item->next;
+                env->free(env, item, sizeof(ulver_object_item));
+                item = next;
+        }
+}
+
+ulver_object *ulver_object_copy_to(ulver_env *env, ulver_object *src, ulver_object *dst) {
+	object_clear(env, dst);
+	dst->len = src->len;
+        dst->str = src->str;
+        dst->n = src->n;
+        dst->d = src->d;
+        dst->func = src->func;
+        dst->lambda_list = src->lambda_list;
+        dst->form = src->form;
+        ulver_object_item *item = src->list;
+        while(item) {
+        	ulver_object_push(env, dst, ulver_object_copy(env, item->o));
+                item = item->next;
+        }
+        return dst;
+}
+
+ulver_object *ulver_object_copy(ulver_env *env, ulver_object *uo) {
+        ulver_object *new = ulver_object_new(env, uo->type);
+	return ulver_object_copy_to(env, uo, new);
+}
 
 void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
         ulver_object *prev = uo->gc_prev;
@@ -94,43 +157,7 @@ void ulver_object_destroy(ulver_env *env, ulver_object *uo) {
                 env->gc_root = next;
         }
 
-        if (uo->str) {
-                // strings memory area is zero-suffixed
-                env->free(env, uo->str, uo->len + 1);
-        }
-
-        if (uo->map) {
-                ulver_symbolmap_destroy(env, uo->map);
-        }
-
-        if (uo->stream) {
-                env->free(env, uo->stream, sizeof(ulver_uv_stream));
-        }
-
-	// if the coro get out of scope we can safely destroy it
-	if (uo->coro) {
-		destroy_coro(env, uo->coro);
-	}
-
-        if (uo->thread) {
-		// threads are destroyed independently
-		uo->thread->used = 0;
-        }
-
-	// if the object is a form without source, let's destroy it
-	if (uo->form) {
-		if (!uo->form->source) {
-			ulver_form_destroy(env, uo->form);
-		}	
-	}
-
-        // free items
-        ulver_object_item *item = uo->list;
-        while(item) {
-                ulver_object_item *next = item->next;
-                env->free(env, item, sizeof(ulver_object_item));
-                item = next;
-        }
+	object_clear(env, uo);
 
         env->free(env, uo, sizeof(ulver_object));
 }
@@ -232,7 +259,7 @@ void ulver_gc(ulver_env *env) {
         while(threads) {
                 ulver_thread *next = threads->next;
 		// threads cannot die until an object maps to them
-                if (threads->dead && !threads->used) {
+                if (threads->dead && !threads->refs) {
                         // TODO what happens if it fails ?
                         uv_thread_join(&threads->t);
                         ulver_thread_destroy(env, threads);
