@@ -1,5 +1,21 @@
 #include <ulver_funcs.h>
 
+ulver_object *ulver_fun_setf(ulver_env *env, ulver_form *argv) {
+	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
+	ulver_object *dst = ulver_eval(env, argv);
+	if (!dst) return NULL;
+	ulver_object *src = ulver_eval(env, argv->next);
+	if (!src) return NULL;
+	uv_rwlock_rdunlock(&env->gc_lock);
+        uv_rwlock_wrlock(&env->gc_lock);
+
+	ulver_object_copy_to(env, src, dst);
+
+        uv_rwlock_wrunlock(&env->gc_lock);
+        uv_rwlock_rdlock(&env->gc_lock);
+	return dst;
+}
+
 ulver_object *ulver_fun_defparameter(ulver_env *env, ulver_form *argv) {
 	if (!argv || !argv->next) return ulver_error(env, ULVER_ERR_TWO_ARG);
         if (argv->type != ULVER_SYMBOL) return ulver_error(env, ULVER_ERR_NOT_SYMBOL);
@@ -1213,6 +1229,8 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "string-split", ulver_fun_string_split);
 
         ulver_register_fun(env, "get-universal-time", ulver_fun_get_universal_time);
+
+        ulver_register_fun(env, "setf", ulver_fun_setf);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
         ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);

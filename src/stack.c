@@ -20,6 +20,20 @@ ulver_symbolmap *ulver_symbolmap_new(ulver_env *env) {
 	return smap;
 }
 
+ulver_symbolmap *ulver_symbolmap_copy(ulver_env *env, ulver_symbolmap *src) {
+	ulver_symbolmap *dst = ulver_symbolmap_new(env);
+        uint64_t i;
+        for(i=0;i<src->hashtable_size;i++) {
+                ulver_symbol *us = src->hashtable[i];
+                while(us) {
+                        // add the item
+			ulver_symbol *ns = ulver_symbolmap_set(env, dst, us->name, us->len, us->value, 1);
+			ns->key = us->key;
+                        us = us->next;
+                }
+        }
+}
+
 static void symbol_hash(ulver_symbolmap *smap, ulver_symbol *us) {
 	// rehash the symbol name
 	uint64_t hash = djb33x_hash(us->name, us->len) % smap->hashtable_size;

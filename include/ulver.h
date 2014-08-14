@@ -27,6 +27,7 @@
 #define ULVER_CORO 12
 #define ULVER_CORO_DEAD 13
 #define ULVER_HASHTABLE 14
+#define ULVER_ARRAY 14
 #define ULVER_TRUE 255
 
 #define ULVER_ERR_NOERROR	0
@@ -426,3 +427,7 @@ ulver_form *ulver_form_push_form(ulver_env *, ulver_form *, uint8_t);
 char *ulver_util_str2num(ulver_env *env, int64_t, uint64_t *);
 
 ulver_msgpack *ulver_object_serialize(ulver_env *, ulver_object *, ulver_msgpack *);
+
+ulver_symbolmap *ulver_symbolmap_copy(ulver_env *, ulver_symbolmap *);
+
+ulver_object *ulver_object_copy_to(ulver_env *, ulver_object *, ulver_object *);

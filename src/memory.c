@@ -81,19 +81,23 @@ static void object_clear(ulver_env *env, ulver_object *uo) {
 	if (uo->str) {
                 // strings memory area is zero-suffixed
                 env->free(env, uo->str, uo->len + 1);
+		uo->str = NULL;
         }
 
         if (uo->map) {
                 ulver_symbolmap_destroy(env, uo->map);
+		uo->map = NULL;
         }
 
         if (uo->stream) {
                 env->free(env, uo->stream, sizeof(ulver_uv_stream));
+		uo->stream = NULL;
         }
 
         // if the coro get out of scope we can safely destroy it
         if (uo->coro) {
                 destroy_coro(env, uo->coro);
+		uo->coro = NULL;
         }
 
         if (uo->thread) {
@@ -101,6 +105,7 @@ static void object_clear(ulver_env *env, ulver_object *uo) {
                 if (uo->thread->refs > 0) {
                         uo->thread->refs--;
                 }
+		uo->thread = NULL;
         }
 
         // if the object is a form without source, let's destroy it
@@ -108,6 +113,7 @@ static void object_clear(ulver_env *env, ulver_object *uo) {
                 if (!uo->form->source) {
                         ulver_form_destroy(env, uo->form);
                 }
+		uo->form = NULL;
         }
 
 	// free items
@@ -117,17 +123,27 @@ static void object_clear(ulver_env *env, ulver_object *uo) {
                 env->free(env, item, sizeof(ulver_object_item));
                 item = next;
         }
+	uo->list = NULL;
 }
 
 ulver_object *ulver_object_copy_to(ulver_env *env, ulver_object *src, ulver_object *dst) {
 	object_clear(env, dst);
+	dst->type = src->type;
 	dst->len = src->len;
-        dst->str = src->str;
+	if (src->str) {
+        	dst->str = ulver_utils_strndup(env, src->str, src->len);
+	}
         dst->n = src->n;
         dst->d = src->d;
+
         dst->func = src->func;
         dst->lambda_list = src->lambda_list;
         dst->form = src->form;
+
+	if (src->map) {
+		dst->map = ulver_symbolmap_copy(env, src->map);
+	}
+
         ulver_object_item *item = src->list;
         while(item) {
         	ulver_object_push(env, dst, ulver_object_copy(env, item->o));
