@@ -301,7 +301,7 @@ void tests() {
 	test_float("(cos 3.2)", cos(3.2));
 	test_float("(cos 5)", cos(5));
 
-	test_num("(setq *sharedht* (make-hash-table))(join-thread (make-thread (sethash *sharedht* :num1 17)))(gethash *sharedht* :num1)", 17);
+	test_num("(setq *sharedht* (make-hash-table))(join-thread (make-thread (sethash :num1 17 *sharedht*)))(gethash :num1 *sharedht*)", 17);
 
 	test_error("(1", ULVER_ERR_PARSE);
 
@@ -325,4 +325,6 @@ void tests() {
 
 	test_num("(eval (ulver:deserialize (ulver:serialize (+ 2 2 (* 2 2) (- 2 1)))))", 9);
 	test_string("(eval (ulver:deserialize (ulver:serialize (string-upcase \"hello\"))))", "HELLO");
+
+	test_string("(setq dynlist (list 1 2 3))(setf (first dynlist) \"foobar\")(first dynlist)", "foobar");
 }
