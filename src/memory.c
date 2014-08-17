@@ -53,8 +53,12 @@ void ulver_thread_destroy(ulver_env *env, ulver_thread *ut) {
 		coros = coros->next;
 	}
 
-        // hub ?
-        ulver_hub_destroy(env, ut);
+        // the hub is automatically destroyed bu the thread itself
+        //ulver_hub_destroy(env, ut);
+	if (ut->hub) {
+		printf("[BUG] hub is still alive !!!\n");
+		exit(1);
+	}
 
 	uv_rwlock_wrlock(&env->threads_lock);
 

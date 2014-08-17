@@ -147,6 +147,7 @@ struct ulver_thread {
 	uint8_t dead;
 	uv_loop_t *hub_loop;
 	ulver_coro *hub;
+	uint8_t hub_unlocked;
 	ulver_coro *main_coro;
 	ulver_coro *coros;
 	ulver_coro *current_coro;

@@ -127,6 +127,7 @@ struct ulver_uv_timer {
 };
 
 static void free_uv_timer(uv_handle_t* handle) {
+	printf("!!! timer %p freed\n", handle);
 	ulver_uv_timer *uvt = (ulver_uv_timer *) handle->data;
 	ulver_env *env = uvt->env;
 	env->free(env, uvt, sizeof(ulver_uv_timer));
@@ -141,6 +142,7 @@ static void ulver_timer_switch_cb(uv_timer_t* handle) {
         ulver_coro_switch(env, uvt->coro);
         uv_timer_stop(&uvt->t);
 	// schedule memory free
+	printf("schedule end of timer %p\n", &uvt->t);
 	uv_close((uv_handle_t *) &uvt->t, free_uv_timer);
 }
 

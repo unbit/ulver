@@ -1011,6 +1011,18 @@ uint64_t ulver_destroy(ulver_env *env) {
 	ulver_symbolmap_destroy(env, env->packages);
 	env->packages = NULL;
 
+	ulver_thread *ut = ulver_current_thread(env);
+	// allow the main hub to end
+	if (ut->hub) {
+		ulver_coro *coros = ut->coros;
+        	while(coros) {
+                	coros->dead = 1;
+                	coros->thread = NULL;
+                	coros = coros->next;
+        	}
+		ulver_coro_switch(env, ut->hub);
+	}
+
 	// mark all threads as dead
 	ulver_thread *threads = env->threads;
 	while(threads) {

@@ -38,6 +38,11 @@ void run_new_thread(void *arg) {
 
         to->ret = ulver_eval(env, argv);
 
+	// is a hub still alive ?
+	if (ut->hub) {
+		ulver_coro_switch(env, ut->hub);
+	}
+
         // Note: to get the return value we need to join the thread
 
         uv_rwlock_rdunlock(&env->gc_lock);

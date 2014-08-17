@@ -46,6 +46,10 @@ static void coro_unschedule(ulver_env *env, ulver_thread *ut, ulver_scheduled_co
 	env->free(env, sc, sizeof(ulver_scheduled_coro));
 }
 
+static void print_handle(uv_handle_t *handle, void *data) {
+	printf("HANDLE = %p\n", handle);
+}
+
 void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
 	if (!ut->hub) return;
 	// some scheduled coro could be alive if the coro has not been
@@ -57,11 +61,9 @@ void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
 		usc = next;
 	}
 	if (uv_loop_close(ut->hub_loop) == UV_EBUSY) {
-		uv_stop(ut->hub_loop);
-		uv_run(ut->hub_loop, UV_RUN_DEFAULT);
-		if (uv_loop_close(ut->hub_loop) == UV_EBUSY) {
-			printf("[BUG] the hub is still alive\n");
-		}
+		uv_walk(ut->hub_loop, print_handle, NULL);
+		printf("[BUG] the hub is still alive\n");
+		exit(1);
 	}
 	env->free(env, ut->hub_loop, sizeof(uv_loop_t));
         ulver_coro_free_context(env, ut->hub);
@@ -70,11 +72,27 @@ void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
         ut->hub_loop = NULL;
 }
 
+static void hub_release_gc(uv_prepare_t* handle) {
+	ulver_env *env = (ulver_env *) handle->data;
+	ulver_thread *ut = ulver_current_thread(env);	
+	uv_rwlock_rdunlock(&env->gc_lock);
+	ut->hub_unlocked = 1;	
+}
+
+static void fake_cb(uv_handle_t *handle) {
+}
+
 static void hub_loop(ulver_coro *hub_coro) {
 	ulver_env *env = hub_coro->env;
 	ulver_thread *ut = hub_coro->thread;
 	// back to the creator coro
 	ulver_coro_switch(env, ut->hub_creator);
+
+	uv_prepare_t release_gc;
+	uv_prepare_init(ut->hub_loop, &release_gc);
+	release_gc.data = env;
+	uv_prepare_start(&release_gc, hub_release_gc);
+
 	// run until there are scheduled or blocked coros
 	for(;;) {
 		// execute all of the sceduled coros
@@ -120,7 +138,14 @@ uvrun:
 			if (!running_coros) break;
 		}
 	}
-	printf("END OF THE HUB\n");
+	uv_stop(ut->hub_loop);
+	uv_run(ut->hub_loop, UV_RUN_DEFAULT);
+
+	// remove the prepare handle
+	uv_prepare_stop(&release_gc);
+	uv_close(&release_gc, fake_cb);
+	// finally clears
+	uv_run(ut->hub_loop, UV_RUN_DEFAULT);
 	ulver_hub_destroy(env, ut);
 	// back to main
 	ulver_coro_fast_switch(env, ut->main_coro);

@@ -32,6 +32,8 @@ error2:
 	close(uo->chan->_pipe[0]);
 	close(uo->chan->_pipe[1]);
 error:
+	printf("\n\nERRORRRRRR\n");
+	exit(1);
 	env->free(env, uo->chan, sizeof(ulver_channel));
 	uo->chan = NULL;	
 	return NULL;
@@ -49,12 +51,20 @@ struct channel_io {
 
 static void consume_channel(uv_poll_t* handle, int status, int events) {
 	struct channel_io *io = (struct channel_io *) handle->data;
+	ulver_thread *ut = ulver_current_thread(io->env);
+	if (ut->hub_unlocked) {
+		uv_rwlock_rdlock(&io->env->gc_lock);
+		ut->hub_unlocked = 0;
+	}
 	int fd = io->fd;
         uv_poll_stop(handle);
-	io->coro->blocked = 0;
 	char byte;
 	ssize_t rlen = read(fd, &byte, 1);
-	if (rlen != 1) goto tocoro;
+	if (rlen != 1) {
+		printf("OOOPS while reading\n");
+		exit(1);
+		goto tocoro;
+	}
 	uv_mutex_lock(&io->chan->lock);
 	if (io->chan->head) {
 		ulver_channel_msg *current = io->chan->head;
@@ -65,6 +75,10 @@ static void consume_channel(uv_poll_t* handle, int status, int events) {
 		}
 		io->env->free(io->env, current, sizeof(ulver_channel_msg));
 	}
+	else {
+		printf("BUG !!!\n");
+		exit(1);
+	}
 	uv_mutex_unlock(&io->chan->lock);
 tocoro:
 	ulver_coro_switch(io->env, io->coro);
@@ -72,12 +86,13 @@ tocoro:
 
 static void produce_channel(uv_poll_t* handle, int status, int events) {
         struct channel_io *io = (struct channel_io *) handle->data;
+	ulver_thread *ut = ulver_current_thread(io->env);
+        if (ut->hub_unlocked) {
+                uv_rwlock_rdlock(&io->env->gc_lock);
+                ut->hub_unlocked = 0;
+        }
         int fd = io->fd;
         uv_poll_stop(handle);
-	io->coro->blocked = 0;
-        char byte = 0;
-        ssize_t rlen = write(fd, &byte, 1);
-        if (rlen != 1) goto tocoro;
         uv_mutex_lock(&io->chan->lock);
 	ulver_channel_msg *cm = io->env->alloc(io->env, sizeof(ulver_channel_msg));
 	cm->o = io->msg;
@@ -90,13 +105,19 @@ static void produce_channel(uv_poll_t* handle, int status, int events) {
 	io->chan->tail = cm;
 	io->msg = NULL;
         uv_mutex_unlock(&io->chan->lock);
+        char byte = 0;
+        ssize_t rlen = write(fd, &byte, 1);
+        if (rlen != 1) {
+		printf("OOOOOOPS\n");
+		exit(1);
+		goto tocoro;
+	}
 tocoro:
         ulver_coro_switch(io->env, io->coro);
 }
 
-static void close_channel(uv_handle_t *handle) {
+static void free_channel_io(uv_handle_t* handle) {
 	struct channel_io *io = (struct channel_io *) handle->data;
-	printf("closing %p\n", io);
         io->env->free(io->env, io, sizeof(struct channel_io));
 }
 
@@ -110,7 +131,6 @@ ulver_object *ulver_fun_receive(ulver_env *env, ulver_form *argv) {
 	ulver_hub(env);
 
 	struct channel_io *io = env->alloc(env, sizeof(struct channel_io));	
-	printf("created %p\n", io);
 	io->env = env;
 	io->coro = ut->current_coro;
 	io->chan = chan->chan;
@@ -122,14 +142,15 @@ ulver_object *ulver_fun_receive(ulver_env *env, ulver_form *argv) {
 	uv_poll_start(&io->handle, UV_READABLE, consume_channel);
 	ut->current_coro->blocked = 1;
 	for(;;) {
+		//printf("READY TO RECEIVE IN %p %p/%p %d\n", &io->handle, ut, chan->chan, io->fd);
 		// switch to hub
 		ulver_coro_switch(env, ut->hub);
 		if (io->msg) break;
-        	ut->current_coro->blocked = 1;
 		uv_poll_start(&io->handle, UV_READABLE, consume_channel);
 	}
 	// back from hub
-	uv_close((uv_handle_t *)&io->handle, close_channel);
+        ut->current_coro->blocked = 0;
+	uv_close(&io->handle, free_channel_io);
 	ulver_object *ret = io->msg;
 	return ret;
 }
@@ -148,7 +169,6 @@ ulver_object *ulver_fun_send(ulver_env *env, ulver_form *argv) {
         ulver_hub(env);
 
         struct channel_io *io = env->alloc(env, sizeof(struct channel_io));
-	printf("created %p\n", io);
         io->env = env;
         io->coro = ut->current_coro;
         io->chan = chan->chan;
@@ -161,13 +181,14 @@ ulver_object *ulver_fun_send(ulver_env *env, ulver_form *argv) {
         uv_poll_start(&io->handle, UV_WRITABLE, produce_channel);
         ut->current_coro->blocked = 1;
         for(;;) {
+		//printf("READY TO SEND ON %p %p/%p %d\n", &io->handle, ut, chan->chan, io->fd);
                 // switch to hub
                 ulver_coro_switch(env, ut->hub);
                 if (!io->msg) break;
-        	ut->current_coro->blocked = 1;
         	uv_poll_start(&io->handle, UV_WRITABLE, produce_channel);
         }
         // back from hub
-	uv_close((uv_handle_t *)&io->handle, close_channel);
+        ut->current_coro->blocked = 0;
+	uv_close(&io->handle, free_channel_io);
         return msg;
 }
