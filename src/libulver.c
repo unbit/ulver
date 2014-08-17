@@ -1063,6 +1063,8 @@ ulver_env *ulver_init() {
 
         ulver_env *env = calloc(1, sizeof(ulver_env));
 
+	env->coro_stacksize = 65536;
+
 	env->creator_thread = (uv_thread_t) uv_thread_self();
 	if (uv_key_create(&env->thread)) {
 		ulver_destroy(env);
@@ -1224,6 +1226,12 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "gethash", ulver_fun_gethash);
         ulver_register_fun(env, "sethash", ulver_fun_sethash);
 
+        ulver_register_fun(env, "make-chan", ulver_fun_make_chan);
+        ulver_register_fun(env, "receive", ulver_fun_receive);
+        ulver_register_fun(env, "<-", ulver_fun_receive);
+        ulver_register_fun(env, "send", ulver_fun_send);
+        ulver_register_fun(env, "->", ulver_fun_send);
+
         ulver_register_fun(env, "string-downcase", ulver_fun_string_downcase);
         ulver_register_fun(env, "string-upcase", ulver_fun_string_upcase);
         ulver_register_fun(env, "string-split", ulver_fun_string_split);
@@ -1233,6 +1241,9 @@ ulver_env *ulver_init() {
         ulver_register_fun(env, "setf", ulver_fun_setf);
 
         ulver_register_package_fun(env, ulver_ns, "hub", ulver_fun_hub);
+
+        ulver_register_package_fun(env, ulver_ns, "now", ulver_fun_now);
+
         ulver_register_package_fun(env, ulver_ns, "serialize", ulver_fun_serialize);
         ulver_register_package_fun(env, ulver_ns, "deserialize", ulver_fun_deserialize);
 

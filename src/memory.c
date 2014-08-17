@@ -116,6 +116,20 @@ static void object_clear(ulver_env *env, ulver_object *uo) {
 		uo->form = NULL;
         }
 
+	// if it is a channel, consume all of the messages
+	// close the pipes and clear the memory structures
+	if (uo->chan) {
+		while(uo->chan->head) {
+			ulver_channel_msg *next = uo->chan->head->next;
+			env->free(env, uo->chan->head, sizeof(ulver_channel_msg));
+			uo->chan->head = next;
+		}	
+		close(uo->chan->_pipe[0]);
+		close(uo->chan->_pipe[1]);
+		env->free(env, uo->chan, sizeof(ulver_channel));
+		uo->chan = NULL;
+	}
+
 	// free items
         ulver_object_item *item = uo->list;
         while(item) {
@@ -189,6 +203,15 @@ static void object_mark(ulver_env *env,  ulver_object *uo) {
 	// has a map ?
 	if (uo->map) {
 		mark_symbolmap(env, uo->map);
+	}
+
+	// is a channel ?
+	if (uo->chan) {
+		ulver_channel_msg *cm = uo->chan->head;
+		while(cm) {
+			object_mark(env, cm->o);
+			cm = cm->next;	
+		}
 	}
 	// is it a list ?
 	ulver_object_item *item = uo->list;

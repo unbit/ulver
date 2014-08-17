@@ -327,4 +327,6 @@ void tests() {
 	test_string("(eval (ulver:deserialize (ulver:serialize (string-upcase \"hello\"))))", "HELLO");
 
 	test_string("(setq dynlist (list 1 2 3))(setf (first dynlist) \"foobar\")(first dynlist)", "foobar");
+
+	test_num("(setq *ch* (make-chan))(make-thread (-> *ch* 10))(make-thread (-> *ch* 2))(make-thread (-> *ch* 5))(+ (<- *ch*) (<- *ch*) (<- *ch*))", 17);
 }

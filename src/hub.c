@@ -56,7 +56,14 @@ void ulver_hub_destroy(ulver_env *env, ulver_thread *ut) {
 		env->free(env, usc, sizeof(ulver_scheduled_coro));
 		usc = next;
 	}
-	uv_loop_delete(ut->hub_loop);
+	if (uv_loop_close(ut->hub_loop) == UV_EBUSY) {
+		uv_stop(ut->hub_loop);
+		uv_run(ut->hub_loop, UV_RUN_DEFAULT);
+		if (uv_loop_close(ut->hub_loop) == UV_EBUSY) {
+			printf("[BUG] the hub is still alive\n");
+		}
+	}
+	env->free(env, ut->hub_loop, sizeof(uv_loop_t));
         ulver_coro_free_context(env, ut->hub);
         env->free(env, ut->hub, sizeof(ulver_coro));
         ut->hub = NULL;
@@ -124,7 +131,8 @@ void ulver_hub(ulver_env *env) {
         // is the hub already running ?
         if (ut->hub) return;
 	ut->hub = ulver_coro_new(env, hub_loop, NULL);
-        ut->hub_loop = uv_loop_new();
+        ut->hub_loop = env->alloc(env, sizeof(uv_loop_t));
+	uv_loop_init(ut->hub_loop);
 	ut->hub_creator = ut->current_coro;
 	ulver_coro_switch(env, ut->hub);
 }

@@ -66,6 +66,7 @@
 #define ULVER_ERR_NOT_HASHTABLE	33
 #define ULVER_ERR_FOUR_ARG	34
 #define ULVER_ERR_NEGATIVE	35
+#define ULVER_ERR_NOT_CHANNEL	36
 #define ULVER_ERR_CUSTOM	255
 
 typedef struct ulver_env ulver_env;
@@ -82,6 +83,8 @@ typedef struct ulver_scheduled_coro ulver_scheduled_coro;
 typedef struct ulver_uv_stream ulver_uv_stream;
 typedef struct ulver_err ulver_err;
 typedef struct ulver_msgpack ulver_msgpack;
+typedef struct ulver_channel_msg ulver_channel_msg;
+typedef struct ulver_channel ulver_channel;
 
 struct ulver_stackframe {
 	struct ulver_stackframe *prev;
@@ -221,6 +224,8 @@ struct ulver_env {
 	uint64_t gc_rounds;
 	ulver_object *gc_root;
 	uv_mutex_t gc_root_lock;
+
+	uint64_t coro_stacksize;
 };
 
 struct ulver_object_item {
@@ -248,6 +253,18 @@ struct ulver_uv_stream {
         ulver_object *func;
         char *buf;
         uint64_t len;
+};
+
+struct ulver_channel_msg {
+	ulver_object *o;
+	ulver_channel_msg *next;
+};
+
+struct ulver_channel {
+	uv_mutex_t lock;
+	int _pipe[2];
+	ulver_channel_msg *head;	
+	ulver_channel_msg *tail;	
 };
 
 struct ulver_object {
@@ -288,6 +305,8 @@ struct ulver_object {
 	ulver_object *ret;
 
 	uint8_t ready;
+
+	ulver_channel *chan;
 };
 
 struct ulver_form {

@@ -33,9 +33,9 @@ void ulver_coro_free_context(ulver_env *env, ulver_coro *coro) {
 #ifdef SPLITSTACK
 		__splitstack_releasecontext(ucc->ss_contexts);
 #else
-		munmap(ucc->stack - 4096, 32768 + 8192);
+		munmap(ucc->stack - 4096, env->coro_stacksize + 8192);
 		uv_mutex_lock(&env->mem_lock);
-        	env->mem -= 32768 + 8192;
+        	env->mem -= env->coro_stacksize + 8192;
         	uv_mutex_unlock(&env->mem_lock);
 #endif
 	}
@@ -56,10 +56,10 @@ ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
         void *stack = __splitstack_makecontext(8192, ucc->ss_contexts, &len);
         __splitstack_block_signals_context(ucc->ss_contexts, &off, NULL);
 #else
-	void *stack = mmap(NULL, 32768 + 8192, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + 4096;
+	void *stack = mmap(NULL, env->coro_stacksize + 8192, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0) + 4096;
 	mprotect(stack - 4096, 4096, PROT_NONE);
-	mprotect(stack + 32768, 4096, PROT_NONE);
-	len = 32768;
+	mprotect(stack + env->coro_stacksize, 4096, PROT_NONE);
+	len = env->coro_stacksize;
 	uv_mutex_lock(&env->mem_lock);
         env->mem += len + 8192;
         uv_mutex_unlock(&env->mem_lock);
@@ -131,7 +131,7 @@ ulver_coro *ulver_coro_new(ulver_env *env, void *func, void *data) {
 	coro->thread = ulver_current_thread(env);
 	coro->env = env;
 	coro->data = data;
-	ucc->fiber = CreateFiber(32768, func, coro);
+	ucc->fiber = CreateFiber(env->coro_stacksize, func, coro);
         return coro;
 }
 void ulver_coro_switch(ulver_env *env, ulver_coro *coro) {

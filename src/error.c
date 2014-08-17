@@ -146,6 +146,7 @@ void ulver_err_table_fill(ulver_env *env) {
 	env->err_table[ULVER_ERR_NOT_HASHTABLE].string = "is not a hashtable" ;
 	env->err_table[ULVER_ERR_FOUR_ARG].string = "require four arguments" ;
 	env->err_table[ULVER_ERR_NEGATIVE].string = "is not a positive number" ;
+	env->err_table[ULVER_ERR_NOT_CHANNEL].string = "is not a channel" ;
 	env->err_table[ULVER_ERR_CUSTOM].string = "custom error" ;
 
 	// fix string length

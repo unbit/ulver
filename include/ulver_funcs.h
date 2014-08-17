@@ -78,3 +78,8 @@ ulver_object *ulver_fun_cluster(ulver_env *, ulver_form *);
 ulver_object *ulver_fun_defnode(ulver_env *, ulver_form *);
 
 ulver_object *ulver_fun_get_universal_time(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_now(ulver_env *, ulver_form *);
+
+ulver_object *ulver_fun_make_chan(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_receive(ulver_env *, ulver_form *);
+ulver_object *ulver_fun_send(ulver_env *, ulver_form *);
