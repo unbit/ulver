@@ -117,7 +117,8 @@ tocoro:
 }
 
 static void free_channel_io(uv_handle_t* handle) {
-	struct channel_io *io = (struct channel_io *) handle->data;
+	uv_poll_t *up = (uv_poll_t *) handle;
+	struct channel_io *io = (struct channel_io *) up->data;
         io->env->free(io->env, io, sizeof(struct channel_io));
 }
 

@@ -184,9 +184,12 @@ int main(int argc, char **argv) {
 	env = ulver_init();
 	env->max_memory = 0;
 	uint64_t i;
-	for(i=0;i<100;i++) {
-		env->gc_freq = i;
-		printf("running tests with gc frequency %llu\n", (unsigned long long) i);
+	printf("[round 0] running tests without gc\n");
+	env->gc_freq = 0;
+	tests();
+	for(i=1;i<173;i++) {
+		env->gc_freq = i % 100;
+		printf("[round %llu] running tests with gc frequency %llu\n", (unsigned long long) i, (unsigned long long) env->gc_freq);
 		tests();
 	}
 
@@ -198,6 +201,8 @@ int main(int argc, char **argv) {
 	printf("GC ROUNDS: %llu\n", (unsigned long long) env->gc_rounds);
 	uint64_t mem = ulver_destroy(env);
 	printf("LEAKED MEMORY: %llu\n", (unsigned long long) mem);
+
+	sleep(30);
 
 	exit(tests_failed);
 }
