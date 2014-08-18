@@ -279,7 +279,7 @@ static void mark_coro(ulver_env *env, ulver_coro *coro) {
                 ulver_object *so = stack->objects;
                 while(so) {
                 	object_mark(env, so);
-                        so = so->stack_next;
+                       	so = so->stack_next;
                 }
                 // get the return value (if any)
                 if (stack->ret) {
@@ -355,5 +355,4 @@ void ulver_gc(ulver_env *env) {
 		}
 		uo = next;
 	}
-
 }

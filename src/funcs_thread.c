@@ -36,26 +36,30 @@ void run_new_thread(void *arg) {
         // wake up the spinning creator thread
         to->thread = ut;
 
+        // Note: to get the return value we need to join the thread
         to->ret = ulver_eval(env, argv);
+
+	// now the thread object can be collected
+	to->gc_protected = 0;
 
 	// is a hub still alive ?
 	if (ut->hub) {
 		ulver_coro_switch(env, ut->hub);
 	}
 
-        // Note: to get the return value we need to join the thread
-
-        uv_rwlock_rdunlock(&env->gc_lock);
 	// setting dead to 1 will allow the thread to be discarded
         ut->dead = 1;
 	// setting ready to 1, will allow the waiting thread to get the
 	// return value
 	to->ready = 1;
+
+        uv_rwlock_rdunlock(&env->gc_lock);
 }
 
 ulver_object *ulver_fun_make_thread(ulver_env *env, ulver_form *argv) {
         if (!argv) return ulver_error(env, ULVER_ERR_ONE_ARG);
         ulver_object *thread = ulver_object_new(env, ULVER_THREAD);
+	thread->gc_protected = 1;
         uv_thread_t t;
         struct ulver_thread_args *uta = env->alloc(env, sizeof(struct ulver_thread_args));
         uta->to = thread;
@@ -63,7 +67,7 @@ ulver_object *ulver_fun_make_thread(ulver_env *env, ulver_form *argv) {
         uta->argv = argv;
         if (uv_thread_create(&t, run_new_thread, uta)) {
                 env->free(env, uta, sizeof(struct ulver_thread_args));
-                return ulver_error_form(env, ULVER_ERR_THREAD, NULL, "unable to spawn thread");
+                return ulver_error(env, ULVER_ERR_THREAD);
         }
 
         // ok, we can now start polling for thread initialization

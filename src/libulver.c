@@ -982,12 +982,18 @@ ulver_object *ulver_load(ulver_env *env, char *filename) {
 
 ulver_object *ulver_run(ulver_env *env, char *source) {
 	ulver_form *uf = ulver_parse(env, source, strlen(source));
+	ulver_source *src = NULL;
         ulver_object *ret = NULL;
         while(uf) {
+		src = uf->source;
 		ret = ulver_eval(env, uf);
 		if (!ret) break;
                 uf = uf->next;
         }
+	// we can safely destroy the source structure
+	if (src) {
+		//ulver_source_destroy(env, src);
+	}
         return ret;
 }
 
@@ -1013,6 +1019,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 
 	ulver_thread *ut = ulver_current_thread(env);
 	// allow the main hub to end
+	printf("is the hub alive ? %p\n", ut->hub);
 	if (ut->hub) {
 		ulver_coro *coros = ut->coros;
         	while(coros) {
@@ -1020,7 +1027,9 @@ uint64_t ulver_destroy(ulver_env *env) {
                 	coros->thread = NULL;
                 	coros = coros->next;
         	}
+		printf("ready to switch\n");
 		ulver_coro_switch(env, ut->hub);
+		printf("back from hub\n");
 	}
 
 	// mark all threads as dead
@@ -1046,18 +1055,7 @@ uint64_t ulver_destroy(ulver_env *env) {
 	ulver_source *source = env->sources;
 	while(source) {
 		ulver_source *next = source->next;
-		// destroy the form tree
-		ulver_form *root = source->form_root;
-		while(root) {
-			ulver_form *next = root->next;
-			ulver_form_destroy(env, root);
-			root = next;
-		}
-		if (source->filename) {
-			env->free(env, source->filename, source->filename_len+1);
-		}
-		env->free(env, source->str, source->len+1);
-		env->free(env, source, sizeof(ulver_source));
+		ulver_source_destroy(env, source);
 		source = next;
 	}
 

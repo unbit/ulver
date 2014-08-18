@@ -119,7 +119,8 @@ void ulver_err_table_fill(ulver_env *env) {
 	env->err_table[ULVER_ERR_FPE].string = "division by zero !" ;
 	env->err_table[ULVER_ERR_PKG_NOTFOUND].string = "package not found" ;
 	env->err_table[ULVER_ERR_PKG].string = "package error" ;
-	env->err_table[ULVER_ERR_THREAD].string = "thread error" ;
+	env->err_table[ULVER_ERR_THREAD].string = "thread creation error" ;
+	env->err_table[ULVER_ERR_THREAD]._errno = 1;
 	env->err_table[ULVER_ERR_NOT_THREAD].string = "is not a thread" ;
 	env->err_table[ULVER_ERR_NOT_CORO].string = "is not a coro" ;
 	env->err_table[ULVER_ERR_NOT_STREAM].string = "is not a stream" ;

@@ -149,6 +149,41 @@ ulver_form *ulver_form_commit(ulver_env *env, ulver_source *us) {
 	return uf;
 }
 
+void ulver_source_destroy(ulver_env *env, ulver_source *source) {
+	 //lock
+        uv_mutex_lock(&env->sources_lock);
+	ulver_source *prev = source->prev;
+	ulver_source *next = source->next;
+
+	if (prev) {
+		prev->next = source->next;
+	}
+
+	if (next) {
+		next->prev = source->prev;
+	}
+
+	if (source == env->sources) {
+        	env->sources = next;
+	}
+
+	// destroy the form tree
+        ulver_form *root = source->form_root;
+        while(root) {
+                ulver_form *next = root->next;
+                ulver_form_destroy(env, root);
+        	root = next;
+        }
+        if (source->filename) {
+        	env->free(env, source->filename, source->filename_len+1);
+        }
+        env->free(env, source->str, source->len+1);
+        env->free(env, source, sizeof(ulver_source));
+
+        uv_mutex_unlock(&env->sources_lock);
+        //unlock
+}
+
 ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	// append the new source to the env
 	ulver_source *source = env->alloc(env, sizeof(ulver_source));
@@ -160,6 +195,7 @@ ulver_form *ulver_parse(ulver_env *env, char *buf, size_t len) {
 	if (env->sources) {
 		ulver_source *first = env->sources;
 		source->next = first;
+		first->prev = source;
 	}
 	env->sources = source;
 	uv_mutex_unlock(&env->sources_lock);

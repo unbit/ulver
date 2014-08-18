@@ -202,8 +202,6 @@ int main(int argc, char **argv) {
 	uint64_t mem = ulver_destroy(env);
 	printf("LEAKED MEMORY: %llu\n", (unsigned long long) mem);
 
-	sleep(30);
-
 	exit(tests_failed);
 }
 
@@ -333,5 +331,6 @@ void tests() {
 
 	test_string("(setq dynlist (list 1 2 3))(setf (first dynlist) \"foobar\")(first dynlist)", "foobar");
 
+foobar:
 	test_num("(setq *ch* (make-chan))(make-thread (-> *ch* 10))(make-thread (-> *ch* 2))(make-thread (-> *ch* 5))(+ (<- *ch*) (<- *ch*) (<- *ch*))", 17);
 }

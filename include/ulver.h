@@ -98,6 +98,7 @@ struct ulver_stackframe {
 struct ulver_source {
 	char *str;
 	uint64_t len;
+	ulver_source *prev;
 	ulver_source *next;
 	uint64_t lines;
 	uint64_t pos;
@@ -451,3 +452,5 @@ ulver_msgpack *ulver_object_serialize(ulver_env *, ulver_object *, ulver_msgpack
 ulver_symbolmap *ulver_symbolmap_copy(ulver_env *, ulver_symbolmap *);
 
 ulver_object *ulver_object_copy_to(ulver_env *, ulver_object *, ulver_object *);
+
+void ulver_source_destroy(ulver_env *, ulver_source *);

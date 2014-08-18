@@ -53,7 +53,7 @@ $(LIBNAME):
 test: libulver.a
 	@$(CC) $(CFLAGS) -Iinclude -g -o $(TEST) t/tests.c libulver.a $(LDFLAGS) $(LIBS)
 	@./ulver_tests
-	@rm $(TEST)
+	#@rm $(TEST)
 
 clean:
 	rm -f src/*.o libulver.a $(LIBNAME) $(BINNAME)
