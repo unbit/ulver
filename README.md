@@ -13,7 +13,7 @@ It has been tested on Linux, FreeBSD, Mac OSX and windows
 Installation
 ============
 
-you need a c compiler (gcc or clang, on windows you can use the mingw tools) and libuv >= 0.11 (clone it from github if you need)
+you need a c compiler (gcc or clang, on windows you can use the mingw tools) and libuv >= 0.11 (clone it from github if you need, and build it as a shared library with --enable-shared)
 
 just run
 
